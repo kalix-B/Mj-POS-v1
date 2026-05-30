@@ -193,3 +193,21 @@ async function getCashDrawerBalance() {
 async function saveCashDrawerBalance(bal) {
     await setConfig('cash_drawer', bal.toFixed(2));
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
