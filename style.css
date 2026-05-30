@@ -1015,12 +1015,14 @@ input:focus, select:focus, textarea:focus {
     justify-content: center;
     z-index: 200;
     opacity: 0;
+    visibility: hidden; /* FIX: Prevents layout layers from blocking inputs */
     pointer-events: none;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .modal-overlay.active {
     opacity: 1;
+    visibility: visible; /* FIX: Makes layout interactable when active */
     pointer-events: auto;
 }
 
@@ -1319,4 +1321,3 @@ input:focus, select:focus, textarea:focus {
 .balance-edit-icon:hover {
     opacity: 1;
 }
-
