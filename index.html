@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="db.js"></script>
     <script>
-        // Check authentication immediately
         checkAuth();
     </script>
 </head>
@@ -87,8 +86,7 @@
                         <button class="category-tab active" onclick="setCategory('All')">All Items</button>
                     </div>
 
-                    <div class="products-grid" id="productsGrid">
-                        </div>
+                    <div class="products-grid" id="productsGrid"></div>
                 </section>
 
                 <section class="cart-section glass-panel">
@@ -111,10 +109,6 @@
                         <div class="total-row" style="align-items: center;">
                             <span>Discount (%)</span>
                             <input type="number" id="discountInput" min="0" max="100" value="0" style="width: 70px; padding: 0.25rem 0.5rem; text-align: right;" oninput="recalculateCart()">
-                        </div>
-                        <div class="total-row">
-                            <span>Tax (12% VAT Included)</span>
-                            <span id="taxVal">₱0.00</span>
                         </div>
                         <div class="total-row grand-total">
                             <span>Total Due</span>
@@ -142,8 +136,7 @@
 
     <div class="modal-overlay" id="receiptModal">
         <div class="modal-box glass-panel">
-            <div class="receipt-wrapper" id="receiptContent">
-                </div>
+            <div class="receipt-wrapper" id="receiptContent"></div>
             <div class="modal-actions">
                 <button onclick="closeReceiptModal()" class="btn-secondary">Close</button>
                 <button onclick="window.print()" class="btn-primary">Print Slip</button>
@@ -154,16 +147,13 @@
     <script>
         let currentCategory = "All";
         let cart = [];
-        let inventory = []; // Initialized empty, populated asynchronously by initScreen()
+        let inventory = [];
 
-        // Initialize Screen asynchronously to handle database lag safely
         async function initScreen() {
             startClock();
             try {
-                // Pull data directly from Supabase via db.js functions
-                inventory = await getInventory(); 
+                inventory = await getInventory();
                 const categories = await getCategories();
-                
                 renderCategoryTabs(categories);
                 renderProducts();
             } catch (err) {
@@ -171,7 +161,6 @@
             }
         }
 
-        // Clock Update
         function startClock() {
             function updateClock() {
                 const now = new Date();
@@ -182,21 +171,18 @@
             setInterval(updateClock, 1000);
         }
 
-        // Render category buttons dynamically from database values
         function renderCategoryTabs(categories = []) {
             const container = document.getElementById('categoryTabs');
-
             container.innerHTML = `<button class="category-tab ${currentCategory === 'All' ? 'active' : ''}" onclick="setCategory('All')">All Items</button>`;
             categories.forEach(cat => {
                 container.innerHTML += `<button class="category-tab ${currentCategory === cat ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`;
             });
         }
 
-        // Safe async handler to swap tab context and pull fresh data streams
         async function setCategory(cat) {
             currentCategory = cat;
             try {
-                inventory = await getInventory(); 
+                inventory = await getInventory();
                 const categories = await getCategories();
                 renderCategoryTabs(categories);
                 renderProducts();
@@ -205,7 +191,6 @@
             }
         }
 
-        // Render item catalog with custom fallbacks and spacing/case corrections
         function renderProducts() {
             const grid = document.getElementById('productsGrid');
             grid.innerHTML = '';
@@ -214,11 +199,8 @@
 
             const filtered = inventory.filter(item => {
                 const matchesSearch = item.name.toLowerCase().includes(searchVal);
-                
-                // Cleans up accidental trailing spaces or casing discrepancies
                 const itemCat = item.category ? item.category.trim().toLowerCase() : "general";
                 const currentCatSelected = currentCategory.trim().toLowerCase();
-                
                 const matchesCategory = currentCategory === "All" || itemCat === currentCatSelected;
                 return matchesSearch && matchesCategory;
             });
@@ -229,7 +211,6 @@
             }
 
             filtered.forEach(item => {
-                // Safeguards in case numeric values were compiled as text strings in database
                 const displayPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
                 const displayStock = typeof item.stock === 'number' ? item.stock : parseInt(item.stock) || 0;
                 const isOutOfStock = displayStock <= 0;
@@ -256,13 +237,11 @@
             renderProducts();
         }
 
-        // Cart Actions
         function addToCart(id) {
             const item = inventory.find(p => p.id === id);
             if (!item || item.stock <= 0) return;
 
             const cartItem = cart.find(c => c.id === id);
-            
             const currentQtyInCart = cartItem ? cartItem.qty : 0;
             if (currentQtyInCart >= item.stock) {
                 alert(`Cannot add more than existing stock limit (${item.stock})`);
@@ -293,7 +272,6 @@
                     alert(`Cannot exceed stock limit of ${invItem.stock}`);
                     return;
                 }
-                
                 cartItem.qty = targetQty;
                 if (cartItem.qty <= 0) {
                     cart = cart.filter(c => c.id !== id);
@@ -319,7 +297,6 @@
                 `;
                 document.getElementById('subtotalVal').textContent = '₱0.00';
                 document.getElementById('totalDueVal').textContent = '₱0.00';
-                document.getElementById('taxVal').textContent = '₱0.00';
                 document.getElementById('changeDueVal').textContent = '₱0.00';
                 return;
             }
@@ -354,10 +331,8 @@
 
             const discountAmount = subtotal * (discountPercent / 100);
             const totalDue = subtotal - discountAmount;
-            const taxAmount = totalDue * 0.12; 
 
             document.getElementById('subtotalVal').textContent = `₱${subtotal.toFixed(2)}`;
-            document.getElementById('taxVal').textContent = `₱${taxAmount.toFixed(2)}`;
             document.getElementById('totalDueVal').textContent = `₱${totalDue.toFixed(2)}`;
             
             calculateChange();
@@ -367,7 +342,6 @@
             const totalText = document.getElementById('totalDueVal').textContent.replace('₱', '');
             const totalDue = parseFloat(totalText) || 0;
             const cashVal = parseFloat(document.getElementById('cashReceived').value) || 0;
-            
             const change = cashVal - totalDue;
             
             if (change >= 0 && totalDue > 0) {
@@ -377,7 +351,6 @@
             }
         }
 
-        // Checkout Cart tracking system updates synchronously down to database rows
         async function checkoutOrder() {
             if (cart.length === 0) {
                 alert("Cannot complete transaction: Cart is empty!");
@@ -393,7 +366,6 @@
                 return;
             }
 
-            // Sync structural loop across stock mutations via db.js parameters
             try {
                 for (const cartItem of cart) {
                     const invItem = inventory.find(p => p.id === cartItem.id);
@@ -409,8 +381,6 @@
             const subtotalText = document.getElementById('subtotalVal').textContent.replace('₱', '');
             const subtotal = parseFloat(subtotalText) || 0;
             const discountPercent = parseFloat(document.getElementById('discountInput').value) || 0;
-            const taxText = document.getElementById('taxVal').textContent.replace('₱', '');
-            const tax = parseFloat(taxText) || 0;
             const change = cashVal - totalDue;
 
             const newTx = {
@@ -426,13 +396,12 @@
                 })),
                 subtotal: subtotal,
                 discount: discountPercent,
-                tax: tax,
+                tax: 0,
                 total: totalDue,
                 cashReceived: cashVal,
                 change: change
             };
 
-            // Write transaction history entry
             await addTransaction(newTx);
 
             const dateStr = new Date(newTx.timestamp).toLocaleString();
@@ -469,10 +438,6 @@
                                 <span>-₱${(newTx.subtotal * (newTx.discount/100)).toFixed(2)}</span>
                             </div>
                         ` : ''}
-                        <div class="receipt-totals-row" style="font-size: 0.8rem; font-weight: normal;">
-                            <span>VAT (12% Included)</span>
-                            <span>₱${newTx.tax.toFixed(2)}</span>
-                        </div>
                         <div class="receipt-totals-row" style="font-size: 1.1rem; border-top: 1px dashed #1e293b; padding-top:0.25rem;">
                             <span>TOTAL DUE</span>
                             <span>₱${newTx.total.toFixed(2)}</span>
@@ -497,7 +462,7 @@
 
             clearCart();
             try {
-                inventory = await getInventory(); 
+                inventory = await getInventory();
             } catch(e){}
             renderProducts();
         }
