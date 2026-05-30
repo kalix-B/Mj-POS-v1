@@ -188,3 +188,56 @@ async function getCashDrawerBalance() {
 async function saveCashDrawerBalance(bal) {
     await setConfig('cash_drawer', bal.toFixed(2));
 }
+
+// ============================================
+// EXPENSES TRACKER
+// ============================================
+async function addExpense(expense) {
+    const { data, error } = await _db
+        .from('expenses')
+        .insert([{
+            description: expense.description,
+            amount: expense.amount,
+            category: expense.category,
+            date: expense.date
+        }])
+        .select()
+        .single();
+    if (error) { console.error('addExpense:', error.message); return null; }
+    return data;
+}
+
+async function getExpenses(startDate, endDate) {
+    let query = _db.from('expenses').select('*').order('date', { ascending: false });
+    if (startDate) query = query.gte('date', startDate);
+    if (endDate) query = query.lte('date', endDate);
+    const { data, error } = await query;
+    if (error) { console.error('getExpenses:', error.message); return []; }
+    return data || [];
+}
+
+async function updateExpense(id, updates) {
+    const { error } = await _db.from('expenses').update(updates).eq('id', id);
+    if (error) console.error('updateExpense:', error.message);
+}
+
+async function deleteExpense(id) {
+    const { error } = await _db.from('expenses').delete().eq('id', id);
+    if (error) console.error('deleteExpense:', error.message);
+}
+
+async function getTotalExpensesForMonth(yearMonth) {
+    const start = `${yearMonth}-01`;
+    const lastDay = new Date(yearMonth + '-01');
+    lastDay.setMonth(lastDay.getMonth() + 1);
+    lastDay.setDate(0);
+    const end = `${yearMonth}-${lastDay.getDate()}`;
+    const expenses = await getExpenses(start, end);
+    return expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+}
+
+
+
+
+
+
