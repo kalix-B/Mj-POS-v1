@@ -11,15 +11,13 @@
         checkAuth();
     </script>
 </head>
-<body>
-    <!-- Background Decor -->
+<body onload="initScreen()">
     <div class="background-decor">
         <div class="circle circle-1"></div>
         <div class="circle circle-2"></div>
     </div>
 
     <div class="app-container">
-        <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-section">
                 <span class="brand-icon">🏪</span>
@@ -67,7 +65,6 @@
             </div>
         </aside>
 
-        <!-- Main Content Area -->
         <main class="main-content">
             <header class="page-header">
                 <div class="page-title">
@@ -78,7 +75,6 @@
             </header>
 
             <div class="pos-layout">
-                <!-- Catalog Section -->
                 <section class="catalog-section">
                     <div class="catalog-controls">
                         <div class="search-bar-container">
@@ -86,34 +82,26 @@
                         </div>
                     </div>
 
-                    <!-- Category Pills -->
                     <div class="category-filters" id="categoryTabs">
                         <button class="category-tab active" onclick="setCategory('All')">All Items</button>
-                        <!-- Other pills generated in JS -->
                     </div>
 
-                    <!-- Grid of Products -->
                     <div class="products-grid" id="productsGrid">
-                        <!-- Filled by Javascript -->
-                    </div>
+                        </div>
                 </section>
 
-                <!-- Cart Panel -->
                 <section class="cart-section glass-panel">
                     <div class="cart-header">
                         <span class="cart-title">Active Order</span>
                         <button class="clear-cart" onclick="clearCart()">Clear All</button>
                     </div>
 
-                    <!-- Cart Item Rows -->
                     <div class="cart-items-container" id="cartItems">
-                        <!-- Filled by JS -->
                         <div style="text-align:center; color: var(--text-secondary); margin-top: 5rem;">
                             Cart is empty. Select products to begin.
                         </div>
                     </div>
 
-                    <!-- Pricing calculations -->
                     <div class="cart-totals">
                         <div class="total-row">
                             <span>Subtotal</span>
@@ -133,7 +121,6 @@
                         </div>
                     </div>
 
-                    <!-- Cash Entry -->
                     <div class="cash-entry">
                         <label for="cashReceived">Cash Received</label>
                         <div class="cash-input-wrap">
@@ -152,12 +139,10 @@
         </main>
     </div>
 
-    <!-- Receipt Preview Modal Overlay -->
     <div class="modal-overlay" id="receiptModal">
         <div class="modal-box glass-panel">
             <div class="receipt-wrapper" id="receiptContent">
-                <!-- Receipt details go here -->
-            </div>
+                </div>
             <div class="modal-actions">
                 <button onclick="closeReceiptModal()" class="btn-secondary">Close</button>
                 <button onclick="window.print()" class="btn-primary">Print Slip</button>
@@ -165,17 +150,24 @@
         </div>
     </div>
 
-    <!-- Page Controller Javascript -->
     <script>
         let currentCategory = "All";
         let cart = [];
-        let inventory = getInventory();
+        let inventory = []; // Initialized empty, populated asynchronously by initScreen()
 
-        // Initialize Screen
-        function initScreen() {
+        // Initialize Screen asynchronously to handle database lag safely
+        async function initScreen() {
             startClock();
-            renderCategoryTabs();
-            renderProducts();
+            try {
+                // Pull data directly from Supabase via db.js functions
+                inventory = await getInventory(); 
+                const categories = await getCategories();
+                
+                renderCategoryTabs(categories);
+                renderProducts();
+            } catch (err) {
+                console.error("System configuration failure:", err);
+            }
         }
 
         // Clock Update
@@ -189,25 +181,30 @@
             setInterval(updateClock, 1000);
         }
 
-        // Render category buttons dynamically from local database
-        function renderCategoryTabs() {
+        // Render category buttons dynamically from database values
+        function renderCategoryTabs(categories = []) {
             const container = document.getElementById('categoryTabs');
-            const categories = getCategories();
 
-            // Re-render
             container.innerHTML = `<button class="category-tab ${currentCategory === 'All' ? 'active' : ''}" onclick="setCategory('All')">All Items</button>`;
             categories.forEach(cat => {
                 container.innerHTML += `<button class="category-tab ${currentCategory === cat ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`;
             });
         }
 
-        function setCategory(cat) {
+        // Safe async handler to swap tab context and pull fresh data streams
+        async function setCategory(cat) {
             currentCategory = cat;
-            renderCategoryTabs();
-            renderProducts();
+            try {
+                inventory = await getInventory(); 
+                const categories = await getCategories();
+                renderCategoryTabs(categories);
+                renderProducts();
+            } catch (err) {
+                console.error("Error upgrading content filters:", err);
+            }
         }
 
-        // Render item catalog
+        // Render item catalog with custom fallbacks and spacing/case corrections
         function renderProducts() {
             const grid = document.getElementById('productsGrid');
             grid.innerHTML = '';
@@ -216,7 +213,12 @@
 
             const filtered = inventory.filter(item => {
                 const matchesSearch = item.name.toLowerCase().includes(searchVal);
-                const matchesCategory = currentCategory === "All" || item.category === currentCategory;
+                
+                // Cleans up accidental trailing spaces or casing discrepancies
+                const itemCat = item.category ? item.category.trim().toLowerCase() : "general";
+                const currentCatSelected = currentCategory.trim().toLowerCase();
+                
+                const matchesCategory = currentCategory === "All" || itemCat === currentCatSelected;
                 return matchesSearch && matchesCategory;
             });
 
@@ -226,20 +228,24 @@
             }
 
             filtered.forEach(item => {
-                const isOutOfStock = item.stock <= 0;
+                // Safeguards in case numeric values were compiled as text strings in database
+                const displayPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
+                const displayStock = typeof item.stock === 'number' ? item.stock : parseInt(item.stock) || 0;
+                const isOutOfStock = displayStock <= 0;
+                
                 let stockBadgeClass = 'badge-success';
-                if (item.stock <= 0) {
+                if (displayStock <= 0) {
                     stockBadgeClass = 'badge-danger';
-                } else if (item.stock <= 5) {
+                } else if (displayStock <= 5) {
                     stockBadgeClass = 'badge-warning';
                 }
 
                 grid.innerHTML += `
                     <div class="product-card glass-panel" onclick="${isOutOfStock ? '' : `addToCart(${item.id})`}" style="${isOutOfStock ? 'opacity: 0.55; cursor: not-allowed;' : ''}">
-                        <span class="badge ${stockBadgeClass} stock-tag">${isOutOfStock ? 'Out of stock' : `Stock: ${item.stock}`}</span>
+                        <span class="badge ${stockBadgeClass} stock-tag">${isOutOfStock ? 'Out of stock' : `Stock: ${displayStock}`}</span>
                         <div class="product-category">${item.category || 'General'}</div>
                         <div class="product-name">${item.name}</div>
-                        <div class="product-price">₱${item.price.toFixed(2)}</div>
+                        <div class="product-price">₱${displayPrice.toFixed(2)}</div>
                     </div>
                 `;
             });
@@ -256,7 +262,6 @@
 
             const cartItem = cart.find(c => c.id === id);
             
-            // Check stock limitations based on current cart additions
             const currentQtyInCart = cartItem ? cartItem.qty : 0;
             if (currentQtyInCart >= item.stock) {
                 alert(`Cannot add more than existing stock limit (${item.stock})`);
@@ -341,7 +346,6 @@
                 `;
             });
 
-            // Calculate values
             let discountPercent = parseFloat(document.getElementById('discountInput').value) || 0;
             if (discountPercent < 0) discountPercent = 0;
             if (discountPercent > 100) discountPercent = 100;
@@ -349,7 +353,7 @@
 
             const discountAmount = subtotal * (discountPercent / 100);
             const totalDue = subtotal - discountAmount;
-            const taxAmount = totalDue * 0.12; // 12% dynamic display tax
+            const taxAmount = totalDue * 0.12; 
 
             document.getElementById('subtotalVal').textContent = `₱${subtotal.toFixed(2)}`;
             document.getElementById('taxVal').textContent = `₱${taxAmount.toFixed(2)}`;
@@ -361,7 +365,6 @@
         function calculateChange() {
             const totalText = document.getElementById('totalDueVal').textContent.replace('₱', '');
             const totalDue = parseFloat(totalText) || 0;
-            
             const cashVal = parseFloat(document.getElementById('cashReceived').value) || 0;
             
             const change = cashVal - totalDue;
@@ -373,8 +376,8 @@
             }
         }
 
-        // Checkout Cart
-        function checkoutOrder() {
+        // Checkout Cart tracking system updates synchronously down to database rows
+        async function checkoutOrder() {
             if (cart.length === 0) {
                 alert("Cannot complete transaction: Cart is empty!");
                 return;
@@ -389,18 +392,19 @@
                 return;
             }
 
-            // Reduce stock count in local inventory state
-            cart.forEach(cartItem => {
-                const invItem = inventory.find(p => p.id === cartItem.id);
-                if (invItem) {
-                    invItem.stock -= cartItem.qty;
+            // Sync structural loop across stock mutations via db.js parameters
+            try {
+                for (const cartItem of cart) {
+                    const invItem = inventory.find(p => p.id === cartItem.id);
+                    if (invItem) {
+                        invItem.stock -= cartItem.qty;
+                        await updateInventoryStock(invItem.id, invItem.stock);
+                    }
                 }
-            });
+            } catch (err) {
+                console.error("Database connection dropped during inventory mutation:", err);
+            }
 
-            // Update database inventory
-            saveInventory(inventory);
-
-            // Log details
             const subtotalText = document.getElementById('subtotalVal').textContent.replace('₱', '');
             const subtotal = parseFloat(subtotalText) || 0;
             const discountPercent = parseFloat(document.getElementById('discountInput').value) || 0;
@@ -427,10 +431,9 @@
                 change: change
             };
 
-            // Write transaction
-            addTransaction(newTx);
+            // Write transaction history entry
+            await addTransaction(newTx);
 
-            // Build Receipt Modal HTML contents
             const dateStr = new Date(newTx.timestamp).toLocaleString();
             let receiptItemsHtml = '';
             newTx.items.forEach(item => {
@@ -489,20 +492,18 @@
                 </div>
             `;
 
-            // Open popup
             document.getElementById('receiptModal').classList.add('active');
 
-            // Reset elements
             clearCart();
+            try {
+                inventory = await getInventory(); 
+            } catch(e){}
             renderProducts();
         }
 
         function closeReceiptModal() {
             document.getElementById('receiptModal').classList.remove('active');
         }
-
-        // Run application
-        initScreen();
     </script>
 </body>
 </html>
