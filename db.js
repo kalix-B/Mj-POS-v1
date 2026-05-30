@@ -14,7 +14,7 @@ const _db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // ============================================
 // AUTH (PIN-based — no Supabase Auth needed)
 // ============================================
-const LOGIN_PIN = "1965";
+const LOGIN_PIN = "1962";
 
 function checkAuth() {
     const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
