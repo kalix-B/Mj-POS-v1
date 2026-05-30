@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MJ POS - GCash Portal</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="db.js"></script>
     <script>
         // Validate session
@@ -212,13 +213,14 @@
 
     <!-- Page Controller script -->
     <script>
-        let transactions = getTransactions();
+        let transactions = [];
         let activeTab = "in"; // "in" or "out"
 
         // Initialize screen
-        function initScreen() {
+        async function initScreen() {
             startClock();
-            renderBalances();
+            transactions = await getTransactions();
+            await renderBalances();
             renderGcashLogs();
         }
 
@@ -234,9 +236,9 @@
         }
 
         // Render Ledger Balances
-        function renderBalances() {
-            const gcashBal = getGcashBalance();
-            const cashBal = getCashDrawerBalance();
+        async function renderBalances() {
+            const gcashBal = await getGcashBalance();
+            const cashBal = await getCashDrawerBalance();
             document.getElementById('gcashBalanceVal').textContent = `₱${gcashBal.toFixed(2)}`;
             document.getElementById('cashDrawerBalanceVal').textContent = `₱${cashBal.toFixed(2)}`;
         }
@@ -293,10 +295,7 @@
             const tbody = document.getElementById('gcashLogsTableBody');
             tbody.innerHTML = '';
 
-            // Filter transactions that are GCash services
             const gcashTxs = transactions.filter(t => t.type === 'gcash-in' || t.type === 'gcash-out');
-            
-            // Sort newest first
             gcashTxs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
             if (gcashTxs.length === 0) {
@@ -327,7 +326,7 @@
         }
 
         // Submit Cash-In
-        function processCashIn(e) {
+        async function processCashIn(e) {
             e.preventDefault();
             const phone = document.getElementById('inPhone').value;
             const amount = parseFloat(document.getElementById('inAmount').value);
@@ -337,8 +336,7 @@
             const fee = amount * (feeRate / 100);
             const totalToCollect = amount + fee;
 
-            // Balance validation check
-            const merchantGcashBal = getGcashBalance();
+            const merchantGcashBal = await getGcashBalance();
             if (amount > merchantGcashBal) {
                 alert(`Insufficient Balance! Your GCash account balance (₱${merchantGcashBal.toFixed(2)}) is lower than requested cash-in amount.`);
                 return;
@@ -356,18 +354,15 @@
                 mobileNumber: phone,
                 gcashAmount: amount,
                 serviceFee: fee,
-                total: totalToCollect, // Amount merchant collects in cash (Amount + Fee)
+                total: totalToCollect,
                 referenceNumber: ref
             };
 
-            addTransaction(tx);
-            
-            // Reload logs and balances
-            transactions = getTransactions();
-            renderBalances();
+            await addTransaction(tx);
+            transactions = await getTransactions();
+            await renderBalances();
             renderGcashLogs();
 
-            // Clear inputs
             document.getElementById('cashInForm').reset();
             document.getElementById('inFeeRate').value = "2.0";
             calculateGcashFees();
@@ -376,7 +371,7 @@
         }
 
         // Submit Cash-Out
-        function processCashOut(e) {
+        async function processCashOut(e) {
             e.preventDefault();
             const phone = document.getElementById('outPhone').value;
             const amount = parseFloat(document.getElementById('outAmount').value);
@@ -386,8 +381,7 @@
             const fee = amount * (feeRate / 100);
             const netHandedOut = amount - fee;
 
-            // Drawer cash validation
-            const cashDrawer = getCashDrawerBalance();
+            const cashDrawer = await getCashDrawerBalance();
             if (netHandedOut > cashDrawer) {
                 alert(`Insufficient Cash! The cash register drawer (₱${cashDrawer.toFixed(2)}) does not have enough physical bills to pay out ₱${netHandedOut.toFixed(2)}.`);
                 return;
@@ -399,21 +393,18 @@
                 timestamp: new Date().toISOString(),
                 cashier: "Admin User",
                 mobileNumber: phone,
-                gcashAmount: amount, // Digital funds added to merchant wallet
+                gcashAmount: amount,
                 serviceFee: fee,
-                totalHandedOut: netHandedOut, // Cash deducted from register drawer
-                total: fee, // Net earnings from transaction is the fee
+                totalHandedOut: netHandedOut,
+                total: fee,
                 referenceNumber: ref
             };
 
-            addTransaction(tx);
-
-            // Reload logs and balances
-            transactions = getTransactions();
-            renderBalances();
+            await addTransaction(tx);
+            transactions = await getTransactions();
+            await renderBalances();
             renderGcashLogs();
 
-            // Clear inputs
             document.getElementById('cashOutForm').reset();
             document.getElementById('outFeeRate').value = "2.0";
             calculateGcashFees();
@@ -422,20 +413,20 @@
         }
 
         // Manual Balance Overrides
-        function adjustBalance(type) {
+        async function adjustBalance(type) {
             if (type === 'gcash') {
-                const current = getGcashBalance();
+                const current = await getGcashBalance();
                 const newVal = prompt("Adjust GCash Wallet Balance (₱):", current.toFixed(2));
                 if (newVal !== null && !isNaN(newVal)) {
-                    saveGcashBalance(parseFloat(newVal));
-                    renderBalances();
+                    await saveGcashBalance(parseFloat(newVal));
+                    await renderBalances();
                 }
             } else {
-                const current = getCashDrawerBalance();
+                const current = await getCashDrawerBalance();
                 const newVal = prompt("Adjust Cash Register Drawer Balance (₱):", current.toFixed(2));
                 if (newVal !== null && !isNaN(newVal)) {
-                    saveCashDrawerBalance(parseFloat(newVal));
-                    renderBalances();
+                    await saveCashDrawerBalance(parseFloat(newVal));
+                    await renderBalances();
                 }
             }
         }
