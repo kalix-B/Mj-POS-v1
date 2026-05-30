@@ -1321,3 +1321,32 @@ input:focus, select:focus, textarea:focus {
 .balance-edit-icon:hover {
     opacity: 1;
 }
+
+/* 1. Hide the modal completely by default */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(9, 13, 22, 0.6); /* Dim background overlay */
+    backdrop-filter: blur(4px);        /* Smooth blur effect */
+    display: none;                     /* 🔑 THIS HIDES IT BY DEFAULT */
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;                     /* Ensures it sits on top when visible */
+}
+
+/* 2. Show the modal only when the 'active' class is added via JavaScript */
+.modal-overlay.active {
+    display: flex;                     /* 🔑 THIS SHOWS IT WHEN CLICKED */
+}
+
+
+
+
+
+
+
+
+
