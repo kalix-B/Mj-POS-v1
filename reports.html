@@ -183,7 +183,6 @@
             startClock();
             
             // Wait for data to load from Supabase
-            // Ensure these functions exist in your db.js file
             transactions = await getTransactions();
             inventory = await getInventory();
 
@@ -201,6 +200,61 @@
             // Render components
             calculateKPIs();
             renderCharts();
+            renderLogsTable();
+        }
+
+        // --- DATA LOGIC FUNCTIONS ---
+
+        function calculateKPIs() {
+            if (!transactions || transactions.length === 0) return;
+
+            let totalRevenue = transactions.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0);
+            let salesCount = transactions.length;
+            let avgValue = totalRevenue / salesCount;
+            let lowStockCount = inventory.filter(item => (Number(item.stock) || 0) <= 5).length;
+
+            document.getElementById('kpiRevenue').textContent = `₱${totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('kpiSalesCount').textContent = salesCount;
+            document.getElementById('kpiAvgValue').textContent = `₱${avgValue.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('kpiLowStock').textContent = lowStockCount;
+        }
+
+        function renderLogsTable() {
+            const tbody = document.getElementById('logsTableBody');
+            tbody.innerHTML = ''; 
+            
+            transactions.forEach(tx => {
+                const row = `<tr>
+                    <td>${tx.receipt_id || 'N/A'}</td>
+                    <td>${tx.created_at ? new Date(tx.created_at).toLocaleString() : '-'}</td>
+                    <td>${tx.details || 'Sale'}</td>
+                    <td>${tx.cashier || 'Admin'}</td>
+                    <td>₱${(Number(tx.discount) || 0).toFixed(2)}</td>
+                    <td>₱${(Number(tx.total) || 0).toFixed(2)}</td>
+                    <td style="text-align: center;">
+                        <button onclick="viewReceipt('${tx.receipt_id}')">👁️</button>
+                    </td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function toggleReportTab(tab) {
+            activeTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tab === 'daily' ? 'btnDailyTab' : 'btnMonthlyTab').classList.add('active');
+            
+            document.getElementById('dateFilterWrap').style.display = tab === 'daily' ? 'block' : 'none';
+            document.getElementById('monthFilterWrap').style.display = tab === 'monthly' ? 'block' : 'none';
+            renderLogsTable();
+        }
+
+        function renderCharts() {
+            console.log("Charts ready to be rendered.");
+        }
+
+        function filterLogs() {
+            console.log("Filtering triggered...");
             renderLogsTable();
         }
 
