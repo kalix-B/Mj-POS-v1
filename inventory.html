@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MJ POS - Inventory Manager</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="db.js"></script>
     <script>
         // Validate user session
@@ -164,13 +165,15 @@
 
     <!-- Inventory Controller Javascript -->
     <script>
-        let inventory = getInventory();
-        let categories = getCategories();
+        let inventory = [];
+        let categories = [];
         let editMode = false;
 
         // Initialize Page
-        function initScreen() {
+        async function initScreen() {
             startClock();
+            inventory = await getInventory();
+            categories = await getCategories();
             populateCategoryDropdown();
             renderTable();
         }
@@ -226,7 +229,7 @@
         }
 
         // Handle Add/Edit Form submission
-        document.getElementById('productForm').addEventListener('submit', function(e) {
+        document.getElementById('productForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const name = document.getElementById('prodName').value.trim();
@@ -236,31 +239,14 @@
             const idVal = document.getElementById('editProductId').value;
 
             if (editMode && idVal) {
-                // Edit mode logic
-                const editId = parseInt(idVal);
-                const idx = inventory.findIndex(item => item.id === editId);
-                if (idx !== -1) {
-                    inventory[idx].name = name;
-                    inventory[idx].category = category;
-                    inventory[idx].price = price;
-                    inventory[idx].stock = stock;
-                }
+                await updateInventoryItem({ id: parseInt(idVal), name, category, price, stock });
             } else {
-                // Add mode logic
-                const newProduct = {
-                    id: Date.now(),
-                    name: name,
-                    category: category,
-                    price: price,
-                    stock: stock
-                };
-                inventory.push(newProduct);
+                await addInventoryItem({ name, category, price, stock });
             }
 
-            // Sync state and save
-            saveInventory(inventory);
+            inventory = await getInventory();
             renderTable();
-            cancelEditMode(); // resets form fields
+            cancelEditMode();
         });
 
         // Trigger Edit mode
@@ -287,24 +273,21 @@
             document.getElementById('formTitle').textContent = "Add New Product";
             document.getElementById('editProductId').value = '';
             document.getElementById('productForm').reset();
-
             document.getElementById('submitFormBtn').textContent = "Save Product";
             document.getElementById('cancelEditBtn').style.display = 'none';
         }
 
         // Delete Product
-        function deleteProduct(id) {
+        async function deleteProduct(id) {
             const item = inventory.find(p => p.id === id);
             if (!item) return;
 
             const confirmDel = confirm(`Are you sure you want to delete "${item.name}" from inventory?`);
             if (confirmDel) {
-                // Filter out
-                inventory = inventory.filter(p => p.id !== id);
-                saveInventory(inventory);
+                await deleteInventoryItem(id);
+                inventory = await getInventory();
                 renderTable();
 
-                // If deleted item was being edited, cancel edit mode
                 const editingId = document.getElementById('editProductId').value;
                 if (editingId && parseInt(editingId) === id) {
                     cancelEditMode();
@@ -337,7 +320,6 @@
             
             categories.forEach(cat => {
                 const isUsed = inventory.some(item => item.category === cat);
-                
                 container.innerHTML += `
                     <div style="display:flex; justify-content:space-between; align-items:center; padding: 0.6rem 0.85rem; background: rgba(255,255,255,0.02); border:1px solid var(--border-card); border-radius: 8px;">
                         <span style="font-weight: 500;">${cat}</span>
@@ -349,7 +331,7 @@
             });
         }
 
-        function addNewCategory() {
+        async function addNewCategory() {
             const input = document.getElementById('newCatName');
             const catName = input.value.trim();
             
@@ -360,16 +342,18 @@
                 return;
             }
             
-            categories.push(catName);
-            saveCategories(categories);
+            await addCategory(catName);
+            categories = await getCategories();
             input.value = '';
             renderCategoryList();
+            populateCategoryDropdown();
         }
 
-        function removeCategory(catName) {
-            categories = categories.filter(c => c !== catName);
-            saveCategories(categories);
+        async function removeCategory(catName) {
+            await deleteCategory(catName);
+            categories = await getCategories();
             renderCategoryList();
+            populateCategoryDropdown();
         }
 
         // Load Page
