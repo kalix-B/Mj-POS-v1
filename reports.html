@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="db.js"></script>
     <script>
-        // Check authentication immediately
         checkAuth();
     </script>
 </head>
@@ -110,14 +109,11 @@
                 <section class="chart-box-grid">
                     <div class="chart-panel glass-panel">
                         <h3>Daily Sales Breakdown (Last 7 Days)</h3>
-                        <div class="svg-chart-container" id="dailyChart">
-                            </div>
+                        <div class="svg-chart-container" id="dailyChart"></div>
                     </div>
-
                     <div class="chart-panel glass-panel">
                         <h3>Monthly Sales Velocity (This Year)</h3>
-                        <div class="svg-chart-container" id="monthlyChart">
-                            </div>
+                        <div class="svg-chart-container" id="monthlyChart"></div>
                     </div>
                 </section>
 
@@ -127,10 +123,8 @@
                             <button class="tab-btn active" id="btnDailyTab" onclick="toggleReportTab('daily')">Daily Log</button>
                             <button class="tab-btn" id="btnMonthlyTab" onclick="toggleReportTab('monthly')">Monthly Log</button>
                         </div>
-                        
                         <div class="reports-filter-row">
                             <input type="text" id="receiptSearch" placeholder="Search Receipt ID..." oninput="filterLogs()" style="padding: 0.5rem 0.85rem; font-size: 0.85rem; width: 180px;">
-                            
                             <div id="dateFilterWrap">
                                 <input type="date" id="dateFilterInput" onchange="filterLogs()" style="padding: 0.5rem 0.85rem; font-size: 0.85rem;">
                             </div>
@@ -153,8 +147,7 @@
                                     <th style="width: 80px; text-align: center;">Receipt</th>
                                 </tr>
                             </thead>
-                            <tbody id="logsTableBody">
-                                </tbody>
+                            <tbody id="logsTableBody"></tbody>
                         </table>
                     </div>
                 </section>
@@ -164,8 +157,7 @@
 
     <div class="modal-overlay" id="receiptModal">
         <div class="modal-box glass-panel">
-            <div class="receipt-wrapper" id="receiptContent">
-                </div>
+            <div class="receipt-wrapper" id="receiptContent"></div>
             <div class="modal-actions">
                 <button onclick="closeReceiptModal()" class="btn-secondary">Close</button>
                 <button onclick="window.print()" class="btn-primary">Print Slip</button>
@@ -174,57 +166,253 @@
     </div>
 
     <script>
-    // 1. Define Variables
     let transactions = [];
     let inventory = [];
+    let activeTab = 'daily';
+    let filteredTransactions = [];
 
-    // 2. Define Helper Functions FIRST so the browser knows they exist
-    function calculateKPIs() {
-        console.log("Running calculateKPIs...");
-        if (!transactions || transactions.length === 0) return;
-        let totalRevenue = transactions.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0);
-        document.getElementById('kpiRevenue').textContent = '₱' + totalRevenue.toLocaleString();
-        document.getElementById('kpiSalesCount').textContent = transactions.length;
-    }
-
-    function renderLogsTable() {
-        console.log("Rendering table...");
-        const tbody = document.getElementById('logsTableBody');
-        tbody.innerHTML = '';
-        transactions.forEach(tx => {
-            tbody.innerHTML += `<tr><td>${tx.receipt_id || '-'}</td><td>${tx.total || 0}</td></tr>`;
-        });
-    }
-
-    function renderCharts() { console.log("Charts placeholder"); }
-    function startClock() { 
-        setInterval(() => {
-            document.getElementById('liveClock').textContent = new Date().toLocaleTimeString();
-        }, 1000);
-    }
-
-    // 3. Define the main Init function
     async function initScreen() {
-        console.log("Initializing...");
         startClock();
-        
-        // Ensure getTransactions/getInventory are defined in db.js
         transactions = await getTransactions();
         inventory = await getInventory();
-
+        filteredTransactions = [...transactions];
         calculateKPIs();
         renderCharts();
         renderLogsTable();
     }
 
-    // 4. Trigger Initialization
+    function startClock() {
+        function updateClock() {
+            const now = new Date();
+            const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            document.getElementById('liveClock').textContent = now.toLocaleDateString('en-US', options);
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+    }
+
+    function calculateKPIs() {
+        const salesTxs = transactions.filter(tx => tx.type === 'sales');
+        const totalRevenue = salesTxs.reduce((sum, tx) => sum + (Number(tx.total) || 0), 0);
+        const avgValue = salesTxs.length > 0 ? totalRevenue / salesTxs.length : 0;
+        const lowStock = inventory.filter(item => item.stock <= 5).length;
+
+        document.getElementById('kpiRevenue').textContent = '₱' + totalRevenue.toFixed(2);
+        document.getElementById('kpiSalesCount').textContent = salesTxs.length;
+        document.getElementById('kpiAvgValue').textContent = '₱' + avgValue.toFixed(2);
+        document.getElementById('kpiLowStock').textContent = lowStock;
+    }
+
+    function toggleReportTab(tab) {
+        activeTab = tab;
+        document.getElementById('btnDailyTab').classList.toggle('active', tab === 'daily');
+        document.getElementById('btnMonthlyTab').classList.toggle('active', tab === 'monthly');
+        document.getElementById('dateFilterWrap').style.display = tab === 'daily' ? 'block' : 'none';
+        document.getElementById('monthFilterWrap').style.display = tab === 'monthly' ? 'block' : 'none';
+        filterLogs();
+    }
+
+    function filterLogs() {
+        const search = document.getElementById('receiptSearch').value.toLowerCase();
+        const dateFilter = document.getElementById('dateFilterInput').value;
+        const monthFilter = document.getElementById('monthFilterInput').value;
+
+        filteredTransactions = transactions.filter(tx => {
+            const txDate = new Date(tx.timestamp);
+            const txDateStr = txDate.toISOString().split('T')[0];
+            const txMonthStr = txDate.toISOString().substring(0, 7);
+            const matchSearch = !search || tx.id.toLowerCase().includes(search);
+            const matchDate = activeTab === 'daily' ? (!dateFilter || txDateStr === dateFilter) : true;
+            const matchMonth = activeTab === 'monthly' ? (!monthFilter || txMonthStr === monthFilter) : true;
+            return matchSearch && matchDate && matchMonth;
+        });
+
+        renderLogsTable();
+    }
+
+    function renderLogsTable() {
+        const tbody = document.getElementById('logsTableBody');
+        tbody.innerHTML = '';
+
+        if (filteredTransactions.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-secondary); padding:2rem;">No transactions found.</td></tr>`;
+            return;
+        }
+
+        filteredTransactions.forEach(tx => {
+            const date = new Date(tx.timestamp).toLocaleString();
+            const isSales = tx.type === 'sales';
+            const isGcashIn = tx.type === 'gcash-in';
+            const isGcashOut = tx.type === 'gcash-out';
+
+            let typeBadge = '';
+            if (isSales) typeBadge = `<span class="badge badge-success">🛍️ Sales</span>`;
+            else if (isGcashIn) typeBadge = `<span class="badge badge-success">📲 GCash In</span>`;
+            else if (isGcashOut) typeBadge = `<span class="badge badge-warning">💸 GCash Out</span>`;
+            else typeBadge = `<span class="badge">${tx.type}</span>`;
+
+            const discountOrFee = isSales
+                ? `${tx.discount || 0}%`
+                : (isGcashIn || isGcashOut)
+                ? `₱${(tx.serviceFee || 0).toFixed(2)}`
+                : '-';
+
+            tbody.innerHTML += `
+                <tr>
+                    <td><b style="font-family:monospace; font-size:0.8rem;">${tx.id}</b></td>
+                    <td><small>${date}</small></td>
+                    <td>${typeBadge}</td>
+                    <td>${tx.cashier || 'Admin'}</td>
+                    <td>${discountOrFee}</td>
+                    <td><b>₱${Number(tx.total || 0).toFixed(2)}</b></td>
+                    <td style="text-align:center;">
+                        <button class="btn-icon" onclick="openReceiptModal('${tx.id}')" title="View Receipt">🧾</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function renderCharts() {
+        renderDailyChart();
+        renderMonthlyChart();
+    }
+
+    function renderDailyChart() {
+        const container = document.getElementById('dailyChart');
+        const salesTxs = transactions.filter(tx => tx.type === 'sales');
+        const days = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            days.push(d.toISOString().split('T')[0]);
+        }
+        const totals = days.map(day =>
+            salesTxs.filter(tx => tx.timestamp && tx.timestamp.startsWith(day))
+                .reduce((sum, tx) => sum + (Number(tx.total) || 0), 0)
+        );
+        const max = Math.max(...totals, 1);
+        const labels = days.map(d => d.substring(5));
+        container.innerHTML = renderBarChart(labels, totals, max, '₱');
+    }
+
+    function renderMonthlyChart() {
+        const container = document.getElementById('monthlyChart');
+        const salesTxs = transactions.filter(tx => tx.type === 'sales');
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const year = new Date().getFullYear();
+        const totals = months.map((_, i) =>
+            salesTxs.filter(tx => {
+                if (!tx.timestamp) return false;
+                const d = new Date(tx.timestamp);
+                return d.getFullYear() === year && d.getMonth() === i;
+            }).reduce((sum, tx) => sum + (Number(tx.total) || 0), 0)
+        );
+        const max = Math.max(...totals, 1);
+        container.innerHTML = renderBarChart(months, totals, max, '₱');
+    }
+
+    function renderBarChart(labels, values, max, prefix) {
+        const w = 560, h = 160, pad = 40, barW = Math.floor((w - pad * 2) / labels.length) - 4;
+        let svg = `<svg viewBox="0 0 ${w} ${h+40}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">`;
+        labels.forEach((label, i) => {
+            const barH = values[i] > 0 ? Math.max(4, Math.round((values[i] / max) * h)) : 2;
+            const x = pad + i * ((w - pad * 2) / labels.length);
+            const y = h - barH + 10;
+            svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="4" fill="var(--accent-blue)" opacity="0.8"/>`;
+            svg += `<text x="${x + barW/2}" y="${h + 25}" text-anchor="middle" font-size="10" fill="var(--text-secondary)">${label}</text>`;
+            if (values[i] > 0) {
+                svg += `<text x="${x + barW/2}" y="${y - 4}" text-anchor="middle" font-size="9" fill="var(--text-primary)">${prefix}${values[i].toFixed(0)}</text>`;
+            }
+        });
+        svg += `</svg>`;
+        return svg;
+    }
+
+    function openReceiptModal(txId) {
+        const tx = transactions.find(t => t.id === txId);
+        if (!tx) return;
+
+        const date = new Date(tx.timestamp).toLocaleString();
+        const isSales = tx.type === 'sales';
+        const isGcash = tx.type === 'gcash-in' || tx.type === 'gcash-out';
+
+        let itemsHtml = '';
+        if (isSales && tx.items) {
+            const items = Array.isArray(tx.items) ? tx.items : JSON.parse(tx.items);
+            items.forEach(item => {
+                itemsHtml += `
+                    <div style="display:flex; justify-content:space-between; padding:0.3rem 0; border-bottom:1px dashed #444;">
+                        <span>${item.name} x${item.qty}</span>
+                        <span>₱${(item.price * item.qty).toFixed(2)}</span>
+                    </div>`;
+            });
+        }
+
+        const receiptHtml = `
+            <div style="font-family: monospace; font-size: 0.85rem; color: var(--text-primary);">
+                <div style="text-align:center; margin-bottom:1rem;">
+                    <b style="font-size:1.1rem;">🏪 MJ POS</b><br>
+                    <small>${date}</small><br>
+                    <small>Receipt: ${tx.id}</small>
+                </div>
+                <hr style="border-color:#444; margin:0.5rem 0;">
+                ${isSales ? itemsHtml : ''}
+                ${isGcash ? `
+                    <div style="display:flex;justify-content:space-between;padding:0.3rem 0;">
+                        <span>Service Type</span><span>${tx.type === 'gcash-in' ? 'Cash-In' : 'Cash-Out'}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:0.3rem 0;">
+                        <span>Mobile</span><span>${tx.mobileNumber || '-'}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:0.3rem 0;">
+                        <span>GCash Amount</span><span>₱${Number(tx.gcashAmount || 0).toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:0.3rem 0;">
+                        <span>Service Fee</span><span>₱${Number(tx.serviceFee || 0).toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:0.3rem 0;">
+                        <span>Reference</span><span>${tx.referenceNumber || '-'}</span>
+                    </div>
+                ` : ''}
+                <hr style="border-color:#444; margin:0.5rem 0;">
+                ${isSales ? `
+                    <div style="display:flex;justify-content:space-between;padding:0.2rem 0;">
+                        <span>Subtotal</span><span>₱${Number(tx.subtotal || 0).toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:0.2rem 0;">
+                        <span>Discount</span><span>${tx.discount || 0}%</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:0.2rem 0;">
+                        <span>Tax</span><span>₱${Number(tx.tax || 0).toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:0.2rem 0;">
+                        <span>Cash Received</span><span>₱${Number(tx.cashReceived || 0).toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:0.2rem 0;">
+                        <span>Change</span><span>₱${Number(tx.change || 0).toFixed(2)}</span>
+                    </div>
+                ` : ''}
+                <div style="display:flex;justify-content:space-between;padding:0.4rem 0;font-size:1rem;font-weight:bold;">
+                    <span>TOTAL</span><span>₱${Number(tx.total || 0).toFixed(2)}</span>
+                </div>
+                <hr style="border-color:#444; margin:0.5rem 0;">
+                <div style="text-align:center; margin-top:0.75rem;">
+                    <small>Cashier: ${tx.cashier || 'Admin'}</small><br>
+                    <small>Thank you for your purchase!</small>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('receiptContent').innerHTML = receiptHtml;
+        document.getElementById('receiptModal').classList.add('active');
+    }
+
+    function closeReceiptModal() {
+        document.getElementById('receiptModal').classList.remove('active');
+    }
+
     initScreen();
-</script>
-
-
-
-
-
-
-
-        
+    </script>
+</body>
+</html>
