@@ -1360,7 +1360,34 @@ input:focus, select:focus, textarea:focus {
     font-weight: 500;
 }
 
+/* Force receipt styles for readability */
+.modal-overlay .modal-box .receipt-wrapper,
+.modal-overlay .modal-box .receipt-wrapper * {
+    background: white !important;
+    color: #1e293b !important;
+    border-color: #e2e8f0 !important;
+}
 
+.receipt-wrapper {
+    background: white !important;
+    color: #1e293b !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.receipt-wrapper .receipt-header,
+.receipt-wrapper .receipt-body,
+.receipt-wrapper .receipt-footer {
+    background: white !important;
+    color: #1e293b !important;
+}
+
+.receipt-wrapper .receipt-totals-row {
+    color: #1e293b !important;
+}
+
+.receipt-wrapper .receipt-line-item {
+    color: #334155 !important;
+}
 
 
 
