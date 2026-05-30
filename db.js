@@ -6,7 +6,14 @@ const SUPABASE_URL = 'https://puzqsuqouuofbwdarrax.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1enFzdXFvdXVvZmJ3ZGFycmF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjU5ODUsImV4cCI6MjA5NTcwMTk4NX0.4OFyoKKP0J0tD4B28C9SCZc6IF_kViItOtOLqH2051w';
 
 const { createClient } = supabase;
-const _db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const _db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+        headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+        }
+    }
+});
 
 // ============================================
 // AUTH (PIN-based — no Supabase Auth needed)
