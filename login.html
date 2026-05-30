@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MJ POS - Login</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="db.js"></script>
+</head>
+<body class="login-body">
+    <!-- Glowing background elements -->
+    <div class="background-decor">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+    </div>
+    
+    <main class="login-card glass-panel">
+        <h2>Welcome Back</h2>
+        <p class="subtitle">Enter Admin PIN to access the POS System</p>
+        
+        <form id="loginForm">
+            <div class="login-input-group">
+                <label for="pinInput">Admin Passcode / PIN</label>
+                <input type="password" id="pinInput" placeholder="••••" maxlength="4" required autocomplete="current-password">
+            </div>
+            
+            <button type="submit" class="btn-primary">Sign In</button>
+            <div id="errorMsg" class="login-error-msg"></div>
+        </form>
+    </main>
+    
+    <script>
+        // Check auth status on load
+        checkAuth();
+        
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const pinVal = document.getElementById('pinInput').value;
+            const errorElement = document.getElementById('errorMsg');
+            
+            if (login(pinVal)) {
+                errorElement.style.opacity = '0';
+                window.location.href = 'index.html';
+            } else {
+                errorElement.textContent = "Invalid PIN! Default is 1234";
+                errorElement.style.opacity = '1';
+                
+                // Shake effect on card for feedback
+                const card = document.querySelector('.login-card');
+                card.style.animation = 'none';
+                void card.offsetWidth; // Trigger reflow
+                card.style.animation = 'shake 0.4s ease';
+                
+                document.getElementById('pinInput').value = '';
+                document.getElementById('pinInput').focus();
+            }
+        });
+    </script>
+    
+    <style>
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+    </style>
+</body>
+</html>

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MJ POS - Sales Terminal</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="db.js"></script>
+    <script>
+        // Check authentication immediately
+        checkAuth();
+    </script>
+</head>
+<body>
+    <!-- Background Decor -->
+    <div class="background-decor">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand-section">
+                <span class="brand-icon">🏪</span>
+                <span class="brand-name">MJ POS</span>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item active">
+                    <a href="index.html">
+                        <span class="brand-icon">🛍️</span>
+                        <span>Sales Screen</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="inventory.html">
+                        <span class="brand-icon">📦</span>
+                        <span>Inventory</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="gcash.html">
+                        <span class="brand-icon">💙</span>
+                        <span>GCash Services</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="reports.html">
+                        <span class="brand-icon">📈</span>
+                        <span>Reports</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="user-profile">
+                <div class="user-info">
+                    <div class="user-avatar">A</div>
+                    <div class="user-details">
+                        <span class="user-name">Admin User</span>
+                        <span class="user-role">Store Manager</span>
+                    </div>
+                </div>
+                <button onclick="logout()" class="logout-btn">
+                    <span>Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="page-header">
+                <div class="page-title">
+                    <h1>Sales Terminal</h1>
+                    <p>Process checkout operations and search items</p>
+                </div>
+                <div class="header-clock" id="liveClock">Loading...</div>
+            </header>
+
+            <div class="pos-layout">
+                <!-- Catalog Section -->
+                <section class="catalog-section">
+                    <div class="catalog-controls">
+                        <div class="search-bar-container">
+                            <input type="text" id="searchInput" placeholder="Search products by name..." oninput="filterProducts()">
+                        </div>
+                    </div>
+
+                    <!-- Category Pills -->
+                    <div class="category-filters" id="categoryTabs">
+                        <button class="category-tab active" onclick="setCategory('All')">All Items</button>
+                        <!-- Other pills generated in JS -->
+                    </div>
+
+                    <!-- Grid of Products -->
+                    <div class="products-grid" id="productsGrid">
+                        <!-- Filled by Javascript -->
+                    </div>
+                </section>
+
+                <!-- Cart Panel -->
+                <section class="cart-section glass-panel">
+                    <div class="cart-header">
+                        <span class="cart-title">Active Order</span>
+                        <button class="clear-cart" onclick="clearCart()">Clear All</button>
+                    </div>
+
+                    <!-- Cart Item Rows -->
+                    <div class="cart-items-container" id="cartItems">
+                        <!-- Filled by JS -->
+                        <div style="text-align:center; color: var(--text-secondary); margin-top: 5rem;">
+                            Cart is empty. Select products to begin.
+                        </div>
+                    </div>
+
+                    <!-- Pricing calculations -->
+                    <div class="cart-totals">
+                        <div class="total-row">
+                            <span>Subtotal</span>
+                            <span id="subtotalVal">₱0.00</span>
+                        </div>
+                        <div class="total-row" style="align-items: center;">
+                            <span>Discount (%)</span>
+                            <input type="number" id="discountInput" min="0" max="100" value="0" style="width: 70px; padding: 0.25rem 0.5rem; text-align: right;" oninput="recalculateCart()">
+                        </div>
+                        <div class="total-row">
+                            <span>Tax (12% VAT Included)</span>
+                            <span id="taxVal">₱0.00</span>
+                        </div>
+                        <div class="total-row grand-total">
+                            <span>Total Due</span>
+                            <span class="val" id="totalDueVal">₱0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Cash Entry -->
+                    <div class="cash-entry">
+                        <label for="cashReceived">Cash Received</label>
+                        <div class="cash-input-wrap">
+                            <span>₱</span>
+                            <input type="number" id="cashReceived" min="0" placeholder="0.00" oninput="calculateChange()">
+                        </div>
+                        <div class="total-row" style="margin-top: 0.5rem; font-weight: 600;">
+                            <span>Change Due</span>
+                            <span id="changeDueVal" style="color: var(--accent-emerald);">₱0.00</span>
+                        </div>
+                    </div>
+
+                    <button onclick="checkoutOrder()" class="btn-primary checkout-btn">Complete Sale</button>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Receipt Preview Modal Overlay -->
+    <div class="modal-overlay" id="receiptModal">
+        <div class="modal-box glass-panel">
+            <div class="receipt-wrapper" id="receiptContent">
+                <!-- Receipt details go here -->
+            </div>
+            <div class="modal-actions">
+                <button onclick="closeReceiptModal()" class="btn-secondary">Close</button>
+                <button onclick="window.print()" class="btn-primary">Print Slip</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page Controller Javascript -->
+    <script>
+        let currentCategory = "All";
+        let cart = [];
+        let inventory = getInventory();
+
+        // Initialize Screen
+        function initScreen() {
+            startClock();
+            renderCategoryTabs();
+            renderProducts();
+        }
+
+        // Clock Update
+        function startClock() {
+            function updateClock() {
+                const now = new Date();
+                const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+                document.getElementById('liveClock').textContent = now.toLocaleDateString('en-US', options);
+            }
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        // Render category buttons dynamically from local database
+        function renderCategoryTabs() {
+            const container = document.getElementById('categoryTabs');
+            const categories = getCategories();
+
+            // Re-render
+            container.innerHTML = `<button class="category-tab ${currentCategory === 'All' ? 'active' : ''}" onclick="setCategory('All')">All Items</button>`;
+            categories.forEach(cat => {
+                container.innerHTML += `<button class="category-tab ${currentCategory === cat ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`;
+            });
+        }
+
+        function setCategory(cat) {
+            currentCategory = cat;
+            renderCategoryTabs();
+            renderProducts();
+        }
+
+        // Render item catalog
+        function renderProducts() {
+            const grid = document.getElementById('productsGrid');
+            grid.innerHTML = '';
+            
+            const searchVal = document.getElementById('searchInput').value.toLowerCase();
+
+            const filtered = inventory.filter(item => {
+                const matchesSearch = item.name.toLowerCase().includes(searchVal);
+                const matchesCategory = currentCategory === "All" || item.category === currentCategory;
+                return matchesSearch && matchesCategory;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; color: var(--text-secondary); margin-top:3rem;">No products found.</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const isOutOfStock = item.stock <= 0;
+                let stockBadgeClass = 'badge-success';
+                if (item.stock <= 0) {
+                    stockBadgeClass = 'badge-danger';
+                } else if (item.stock <= 5) {
+                    stockBadgeClass = 'badge-warning';
+                }
+
+                grid.innerHTML += `
+                    <div class="product-card glass-panel" onclick="${isOutOfStock ? '' : `addToCart(${item.id})`}" style="${isOutOfStock ? 'opacity: 0.55; cursor: not-allowed;' : ''}">
+                        <span class="badge ${stockBadgeClass} stock-tag">${isOutOfStock ? 'Out of stock' : `Stock: ${item.stock}`}</span>
+                        <div class="product-category">${item.category || 'General'}</div>
+                        <div class="product-name">${item.name}</div>
+                        <div class="product-price">₱${item.price.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+        }
+
+        function filterProducts() {
+            renderProducts();
+        }
+
+        // Cart Actions
+        function addToCart(id) {
+            const item = inventory.find(p => p.id === id);
+            if (!item || item.stock <= 0) return;
+
+            const cartItem = cart.find(c => c.id === id);
+            
+            // Check stock limitations based on current cart additions
+            const currentQtyInCart = cartItem ? cartItem.qty : 0;
+            if (currentQtyInCart >= item.stock) {
+                alert(`Cannot add more than existing stock limit (${item.stock})`);
+                return;
+            }
+
+            if (cartItem) {
+                cartItem.qty++;
+            } else {
+                cart.push({
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    qty: 1,
+                    category: item.category
+                });
+            }
+            recalculateCart();
+        }
+
+        function updateCartQty(id, delta) {
+            const cartItem = cart.find(c => c.id === id);
+            const invItem = inventory.find(p => p.id === id);
+            
+            if (cartItem && invItem) {
+                const targetQty = cartItem.qty + delta;
+                if (targetQty > invItem.stock) {
+                    alert(`Cannot exceed stock limit of ${invItem.stock}`);
+                    return;
+                }
+                
+                cartItem.qty = targetQty;
+                if (cartItem.qty <= 0) {
+                    cart = cart.filter(c => c.id !== id);
+                }
+            }
+            recalculateCart();
+        }
+
+        function clearCart() {
+            cart = [];
+            document.getElementById('discountInput').value = 0;
+            document.getElementById('cashReceived').value = '';
+            recalculateCart();
+        }
+
+        function recalculateCart() {
+            const container = document.getElementById('cartItems');
+            if (cart.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; color: var(--text-secondary); margin-top: 5rem;">
+                        Cart is empty. Select products to begin.
+                    </div>
+                `;
+                document.getElementById('subtotalVal').textContent = '₱0.00';
+                document.getElementById('totalDueVal').textContent = '₱0.00';
+                document.getElementById('taxVal').textContent = '₱0.00';
+                document.getElementById('changeDueVal').textContent = '₱0.00';
+                return;
+            }
+
+            container.innerHTML = '';
+            let subtotal = 0;
+            
+            cart.forEach(item => {
+                const totalItemPrice = item.price * item.qty;
+                subtotal += totalItemPrice;
+                
+                container.innerHTML += `
+                    <div class="cart-item">
+                        <div class="cart-item-info">
+                            <span class="cart-item-name">${item.name}</span>
+                            <span class="cart-item-price">₱${item.price.toFixed(2)} each</span>
+                        </div>
+                        <div class="cart-item-qty">
+                            <button class="qty-btn" onclick="updateCartQty(${item.id}, -1)">-</button>
+                            <span style="font-weight: 600; min-width: 20px; text-align:center;">${item.qty}</span>
+                            <button class="qty-btn" onclick="updateCartQty(${item.id}, 1)">+</button>
+                            <span class="cart-item-subtotal">₱${totalItemPrice.toFixed(2)}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Calculate values
+            let discountPercent = parseFloat(document.getElementById('discountInput').value) || 0;
+            if (discountPercent < 0) discountPercent = 0;
+            if (discountPercent > 100) discountPercent = 100;
+            document.getElementById('discountInput').value = discountPercent;
+
+            const discountAmount = subtotal * (discountPercent / 100);
+            const totalDue = subtotal - discountAmount;
+            const taxAmount = totalDue * 0.12; // 12% dynamic display tax
+
+            document.getElementById('subtotalVal').textContent = `₱${subtotal.toFixed(2)}`;
+            document.getElementById('taxVal').textContent = `₱${taxAmount.toFixed(2)}`;
+            document.getElementById('totalDueVal').textContent = `₱${totalDue.toFixed(2)}`;
+            
+            calculateChange();
+        }
+
+        function calculateChange() {
+            const totalText = document.getElementById('totalDueVal').textContent.replace('₱', '');
+            const totalDue = parseFloat(totalText) || 0;
+            
+            const cashVal = parseFloat(document.getElementById('cashReceived').value) || 0;
+            
+            const change = cashVal - totalDue;
+            
+            if (change >= 0 && totalDue > 0) {
+                document.getElementById('changeDueVal').textContent = `₱${change.toFixed(2)}`;
+            } else {
+                document.getElementById('changeDueVal').textContent = '₱0.00';
+            }
+        }
+
+        // Checkout Cart
+        function checkoutOrder() {
+            if (cart.length === 0) {
+                alert("Cannot complete transaction: Cart is empty!");
+                return;
+            }
+
+            const totalText = document.getElementById('totalDueVal').textContent.replace('₱', '');
+            const totalDue = parseFloat(totalText) || 0;
+            const cashVal = parseFloat(document.getElementById('cashReceived').value) || 0;
+
+            if (cashVal < totalDue) {
+                alert(`Insufficient Cash! Cash received must be at least ₱${totalDue.toFixed(2)}`);
+                return;
+            }
+
+            // Reduce stock count in local inventory state
+            cart.forEach(cartItem => {
+                const invItem = inventory.find(p => p.id === cartItem.id);
+                if (invItem) {
+                    invItem.stock -= cartItem.qty;
+                }
+            });
+
+            // Update database inventory
+            saveInventory(inventory);
+
+            // Log details
+            const subtotalText = document.getElementById('subtotalVal').textContent.replace('₱', '');
+            const subtotal = parseFloat(subtotalText) || 0;
+            const discountPercent = parseFloat(document.getElementById('discountInput').value) || 0;
+            const taxText = document.getElementById('taxVal').textContent.replace('₱', '');
+            const tax = parseFloat(taxText) || 0;
+            const change = cashVal - totalDue;
+
+            const newTx = {
+                id: "TX-" + Date.now(),
+                timestamp: new Date().toISOString(),
+                cashier: "Admin User",
+                items: cart.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    qty: item.qty,
+                    subtotal: item.price * item.qty
+                })),
+                subtotal: subtotal,
+                discount: discountPercent,
+                tax: tax,
+                total: totalDue,
+                cashReceived: cashVal,
+                change: change
+            };
+
+            // Write transaction
+            addTransaction(newTx);
+
+            // Build Receipt Modal HTML contents
+            const dateStr = new Date(newTx.timestamp).toLocaleString();
+            let receiptItemsHtml = '';
+            newTx.items.forEach(item => {
+                receiptItemsHtml += `
+                    <div class="receipt-line-item">
+                        <span>${item.name} x${item.qty}</span>
+                        <span>₱${item.subtotal.toFixed(2)}</span>
+                    </div>
+                `;
+            });
+
+            document.getElementById('receiptContent').innerHTML = `
+                <div class="receipt-header">
+                    <span class="receipt-title">🏪ELLA STORE</span>
+                    <span>Sari-Sari Store, PH</span>
+                    <span style="font-size:0.75rem;">Terminal ID: #001</span>
+                </div>
+                <div class="receipt-body">
+                    <div><b>Date:</b> ${dateStr}</div>
+                    <div><b>Receipt ID:</b> ${newTx.id}</div>
+                    <div><b>Cashier:</b> ${newTx.cashier}</div>
+                    <hr style="border: 0; border-top: 1px dashed #94a3b8; margin: 0.5rem 0;">
+                    ${receiptItemsHtml}
+                    <div class="receipt-totals">
+                        <div class="receipt-totals-row">
+                            <span>Subtotal</span>
+                            <span>₱${newTx.subtotal.toFixed(2)}</span>
+                        </div>
+                        ${newTx.discount > 0 ? `
+                            <div class="receipt-totals-row">
+                                <span>Discount (${newTx.discount}%)</span>
+                                <span>-₱${(newTx.subtotal * (newTx.discount/100)).toFixed(2)}</span>
+                            </div>
+                        ` : ''}
+                        <div class="receipt-totals-row" style="font-size: 0.8rem; font-weight: normal;">
+                            <span>VAT (12% Included)</span>
+                            <span>₱${newTx.tax.toFixed(2)}</span>
+                        </div>
+                        <div class="receipt-totals-row" style="font-size: 1.1rem; border-top: 1px dashed #1e293b; padding-top:0.25rem;">
+                            <span>TOTAL DUE</span>
+                            <span>₱${newTx.total.toFixed(2)}</span>
+                        </div>
+                        <hr style="border: 0; border-top: 1px dashed #94a3b8; margin: 0.5rem 0;">
+                        <div class="receipt-totals-row" style="font-weight:normal;">
+                            <span>Cash Tendered</span>
+                            <span>₱${newTx.cashReceived.toFixed(2)}</span>
+                        </div>
+                        <div class="receipt-totals-row" style="font-weight:normal;">
+                            <span>Change Due</span>
+                            <span>₱${newTx.change.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="receipt-footer">
+                    <span>Thank You! Please Come Again.</span>
+                </div>
+            `;
+
+            // Open popup
+            document.getElementById('receiptModal').classList.add('active');
+
+            // Reset elements
+            clearCart();
+            renderProducts();
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receiptModal').classList.remove('active');
+        }
+
+        // Run application
+        initScreen();
+    </script>
+</body>
+</html>

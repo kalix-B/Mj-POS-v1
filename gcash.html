@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MJ POS - GCash Portal</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="db.js"></script>
+    <script>
+        // Validate session
+        checkAuth();
+    </script>
+</head>
+<body>
+    <!-- Background Decor -->
+    <div class="background-decor">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand-section">
+                <span class="brand-icon">🏪</span>
+                <span class="brand-name">MJ POS</span>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="index.html">
+                        <span class="brand-icon">🛍️</span>
+                        <span>Sales Screen</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="inventory.html">
+                        <span class="brand-icon">📦</span>
+                        <span>Inventory</span>
+                    </a>
+                </li>
+                <li class="nav-item active">
+                    <a href="gcash.html">
+                        <span class="brand-icon">💙</span>
+                        <span>GCash Services</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="reports.html">
+                        <span class="brand-icon">📈</span>
+                        <span>Reports</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="user-profile">
+                <div class="user-info">
+                    <div class="user-avatar">A</div>
+                    <div class="user-details">
+                        <span class="user-name">Admin User</span>
+                        <span class="user-role">Store Manager</span>
+                    </div>
+                </div>
+                <button onclick="logout()" class="logout-btn">
+                    <span>Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="page-header">
+                <div class="page-title">
+                    <h1>GCash agent portal</h1>
+                    <p>Process GCash cash-in / cash-out transactions and monitor ledger balances</p>
+                </div>
+                <div class="header-clock" id="liveClock">Loading...</div>
+            </header>
+
+            <!-- Ledger Balances Display -->
+            <section class="glass-panel gcash-balance-header-card">
+                <div class="gcash-balances-row">
+                    <div class="balance-item-box gcash-theme">
+                        <span class="balance-label">
+                            <span>💙</span> GCash Wallet Balance 
+                            <span class="balance-edit-icon" onclick="adjustBalance('gcash')" title="Adjust Balance">✏️</span>
+                        </span>
+                        <span class="balance-val gcash-color" id="gcashBalanceVal">₱0.00</span>
+                    </div>
+                    <div class="balance-item-box">
+                        <span class="balance-label">
+                            <span>💵</span> Physical Cash Drawer 
+                            <span class="balance-edit-icon" onclick="adjustBalance('cash')" title="Adjust Balance">✏️</span>
+                        </span>
+                        <span class="balance-val cash-color" id="cashDrawerBalanceVal">₱0.00</span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="gcash-ledger-grid">
+                <!-- Left: Recent GCash Transactions Log -->
+                <section class="inventory-table-panel">
+                    <div class="table-responsive">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Transaction ID / Date</th>
+                                    <th>Service</th>
+                                    <th>Phone Number</th>
+                                    <th>GCash Value</th>
+                                    <th>Fee Earned</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gcashLogsTableBody">
+                                <!-- Populated dynamically by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Right: Calculator & Forms -->
+                <section class="gcash-forms-card glass-panel">
+                    <div class="gcash-tab-headers">
+                        <button class="gcash-tab-btn active" id="tabInBtn" onclick="setGcashTab('in')">📲 Cash-In</button>
+                        <button class="gcash-tab-btn" id="tabOutBtn" onclick="setGcashTab('out')">💸 Cash-Out</button>
+                    </div>
+
+                    <!-- Cash In Form -->
+                    <form id="cashInForm" onsubmit="processCashIn(event)">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="inPhone">Customer Phone Number</label>
+                            <input type="text" id="inPhone" placeholder="09XXXXXXXXX" pattern="^09\d{9}$" maxlength="11" required>
+                        </div>
+                        <div class="form-row-2" style="margin-bottom: 1rem;">
+                            <div class="form-group">
+                                <label for="inAmount">Cash-In Amount (₱)</label>
+                                <input type="number" step="0.01" id="inAmount" min="1" placeholder="0.00" oninput="calculateGcashFees()" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="inFeeRate">Service Fee Rate (%)</label>
+                                <input type="number" step="0.1" id="inFeeRate" min="0" value="2.0" oninput="calculateGcashFees()" required>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label for="inReference">Reference Reference ID (Optional)</label>
+                            <input type="text" id="inReference" placeholder="Generated if left blank">
+                        </div>
+
+                        <!-- Calculations box -->
+                        <div class="calc-display-box">
+                            <div class="calc-row">
+                                <span>Base Transfer amount</span>
+                                <span id="inDisplayBase">₱0.00</span>
+                            </div>
+                            <div class="calc-row">
+                                <span>GCash Service Fee</span>
+                                <span id="inDisplayFee">₱0.00</span>
+                            </div>
+                            <div class="calc-row final-calc">
+                                <span>Total cash to collect</span>
+                                <span class="value-emerald" id="inDisplayTotal">₱0.00</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1.5rem; font-size: 1.05rem;">Process Cash-In</button>
+                    </form>
+
+                    <!-- Cash Out Form (Hidden by default) -->
+                    <form id="cashOutForm" onsubmit="processCashOut(event)" style="display:none;">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="outPhone">Customer Phone Number</label>
+                            <input type="text" id="outPhone" placeholder="09XXXXXXXXX" pattern="^09\d{9}$" maxlength="11" required>
+                        </div>
+                        <div class="form-row-2" style="margin-bottom: 1rem;">
+                            <div class="form-group">
+                                <label for="outAmount">GCash Sent (₱)</label>
+                                <input type="number" step="0.01" id="outAmount" min="1" placeholder="0.00" oninput="calculateGcashFees()" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="outFeeRate">Service Fee Rate (%)</label>
+                                <input type="number" step="0.1" id="outFeeRate" min="0" value="2.0" oninput="calculateGcashFees()" required>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label for="outReference">GCash Reference Reference ID</label>
+                            <input type="text" id="outReference" placeholder="Required for audit" required>
+                        </div>
+
+                        <!-- Calculations box -->
+                        <div class="calc-display-box">
+                            <div class="calc-row">
+                                <span>Digital amount received</span>
+                                <span id="outDisplayBase">₱0.00</span>
+                            </div>
+                            <div class="calc-row">
+                                <span>GCash Service Fee</span>
+                                <span id="outDisplayFee">₱0.00</span>
+                            </div>
+                            <div class="calc-row final-calc">
+                                <span>Net physical cash to hand out</span>
+                                <span class="value-blue" id="outDisplayTotal">₱0.00</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1.5rem; font-size: 1.05rem;">Process Cash-Out</button>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Page Controller script -->
+    <script>
+        let transactions = getTransactions();
+        let activeTab = "in"; // "in" or "out"
+
+        // Initialize screen
+        function initScreen() {
+            startClock();
+            renderBalances();
+            renderGcashLogs();
+        }
+
+        // Clock Update
+        function startClock() {
+            function updateClock() {
+                const now = new Date();
+                const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+                document.getElementById('liveClock').textContent = now.toLocaleDateString('en-US', options);
+            }
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        // Render Ledger Balances
+        function renderBalances() {
+            const gcashBal = getGcashBalance();
+            const cashBal = getCashDrawerBalance();
+            document.getElementById('gcashBalanceVal').textContent = `₱${gcashBal.toFixed(2)}`;
+            document.getElementById('cashDrawerBalanceVal').textContent = `₱${cashBal.toFixed(2)}`;
+        }
+
+        // Toggle Cash-In / Cash-Out tabs
+        function setGcashTab(tab) {
+            activeTab = tab;
+            const inBtn = document.getElementById('tabInBtn');
+            const outBtn = document.getElementById('tabOutBtn');
+            const inForm = document.getElementById('cashInForm');
+            const outForm = document.getElementById('cashOutForm');
+
+            if (tab === 'in') {
+                inBtn.classList.add('active');
+                outBtn.classList.remove('active');
+                inForm.style.display = 'block';
+                outForm.style.display = 'none';
+            } else {
+                inBtn.classList.remove('active');
+                outBtn.classList.add('active');
+                inForm.style.display = 'none';
+                outForm.style.display = 'block';
+            }
+            calculateGcashFees();
+        }
+
+        // Calculate values dynamically
+        function calculateGcashFees() {
+            if (activeTab === 'in') {
+                const amount = parseFloat(document.getElementById('inAmount').value) || 0;
+                const feeRate = parseFloat(document.getElementById('inFeeRate').value) || 0;
+                
+                const fee = amount * (feeRate / 100);
+                const total = amount + fee;
+
+                document.getElementById('inDisplayBase').textContent = `₱${amount.toFixed(2)}`;
+                document.getElementById('inDisplayFee').textContent = `₱${fee.toFixed(2)}`;
+                document.getElementById('inDisplayTotal').textContent = `₱${total.toFixed(2)}`;
+            } else {
+                const amount = parseFloat(document.getElementById('outAmount').value) || 0;
+                const feeRate = parseFloat(document.getElementById('outFeeRate').value) || 0;
+
+                const fee = amount * (feeRate / 100);
+                const net = amount - fee;
+
+                document.getElementById('outDisplayBase').textContent = `₱${amount.toFixed(2)}`;
+                document.getElementById('outDisplayFee').textContent = `₱${fee.toFixed(2)}`;
+                document.getElementById('outDisplayTotal').textContent = `₱${net.toFixed(2)}`;
+            }
+        }
+
+        // Render recent GCash Logs
+        function renderGcashLogs() {
+            const tbody = document.getElementById('gcashLogsTableBody');
+            tbody.innerHTML = '';
+
+            // Filter transactions that are GCash services
+            const gcashTxs = transactions.filter(t => t.type === 'gcash-in' || t.type === 'gcash-out');
+            
+            // Sort newest first
+            gcashTxs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            if (gcashTxs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-secondary); padding: 2rem;">No GCash transactions logged yet.</td></tr>`;
+                return;
+            }
+
+            gcashTxs.forEach(tx => {
+                const formattedDate = new Date(tx.timestamp).toLocaleString();
+                const isCashIn = tx.type === 'gcash-in';
+                const serviceTag = isCashIn 
+                    ? `<span class="badge badge-success" style="background: rgba(16, 185, 129, 0.15)">📲 Cash-In</span>`
+                    : `<span class="badge badge-warning" style="background: rgba(245, 158, 11, 0.15)">💸 Cash-Out</span>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${tx.id}</b><br><small style="color:var(--text-secondary)">${formattedDate}</small></td>
+                        <td>${serviceTag}</td>
+                        <td>${tx.mobileNumber}</td>
+                        <td style="${isCashIn ? 'color: var(--accent-rose)' : 'color: var(--accent-emerald)'}">
+                            ${isCashIn ? '-' : '+'}₱${tx.gcashAmount.toFixed(2)}
+                        </td>
+                        <td style="color: var(--accent-emerald); font-weight:600;">+₱${tx.serviceFee.toFixed(2)}</td>
+                        <td><small style="color:var(--text-secondary); font-family: monospace;">Ref: ${tx.referenceNumber}</small></td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Submit Cash-In
+        function processCashIn(e) {
+            e.preventDefault();
+            const phone = document.getElementById('inPhone').value;
+            const amount = parseFloat(document.getElementById('inAmount').value);
+            const feeRate = parseFloat(document.getElementById('inFeeRate').value);
+            let ref = document.getElementById('inReference').value.trim();
+
+            const fee = amount * (feeRate / 100);
+            const totalToCollect = amount + fee;
+
+            // Balance validation check
+            const merchantGcashBal = getGcashBalance();
+            if (amount > merchantGcashBal) {
+                alert(`Insufficient Balance! Your GCash account balance (₱${merchantGcashBal.toFixed(2)}) is lower than requested cash-in amount.`);
+                return;
+            }
+
+            if (!ref) {
+                ref = "CI-" + Date.now().toString().substring(8);
+            }
+
+            const tx = {
+                id: "TX-" + Date.now(),
+                type: "gcash-in",
+                timestamp: new Date().toISOString(),
+                cashier: "Admin User",
+                mobileNumber: phone,
+                gcashAmount: amount,
+                serviceFee: fee,
+                total: totalToCollect, // Amount merchant collects in cash (Amount + Fee)
+                referenceNumber: ref
+            };
+
+            addTransaction(tx);
+            
+            // Reload logs and balances
+            transactions = getTransactions();
+            renderBalances();
+            renderGcashLogs();
+
+            // Clear inputs
+            document.getElementById('cashInForm').reset();
+            document.getElementById('inFeeRate').value = "2.0";
+            calculateGcashFees();
+
+            alert(`Cash-In successful!\nSent ₱${amount.toFixed(2)} to ${phone}\nCollected cash: ₱${totalToCollect.toFixed(2)} (incl. ₱${fee.toFixed(2)} fee)`);
+        }
+
+        // Submit Cash-Out
+        function processCashOut(e) {
+            e.preventDefault();
+            const phone = document.getElementById('outPhone').value;
+            const amount = parseFloat(document.getElementById('outAmount').value);
+            const feeRate = parseFloat(document.getElementById('outFeeRate').value);
+            const ref = document.getElementById('outReference').value.trim();
+
+            const fee = amount * (feeRate / 100);
+            const netHandedOut = amount - fee;
+
+            // Drawer cash validation
+            const cashDrawer = getCashDrawerBalance();
+            if (netHandedOut > cashDrawer) {
+                alert(`Insufficient Cash! The cash register drawer (₱${cashDrawer.toFixed(2)}) does not have enough physical bills to pay out ₱${netHandedOut.toFixed(2)}.`);
+                return;
+            }
+
+            const tx = {
+                id: "TX-" + Date.now(),
+                type: "gcash-out",
+                timestamp: new Date().toISOString(),
+                cashier: "Admin User",
+                mobileNumber: phone,
+                gcashAmount: amount, // Digital funds added to merchant wallet
+                serviceFee: fee,
+                totalHandedOut: netHandedOut, // Cash deducted from register drawer
+                total: fee, // Net earnings from transaction is the fee
+                referenceNumber: ref
+            };
+
+            addTransaction(tx);
+
+            // Reload logs and balances
+            transactions = getTransactions();
+            renderBalances();
+            renderGcashLogs();
+
+            // Clear inputs
+            document.getElementById('cashOutForm').reset();
+            document.getElementById('outFeeRate').value = "2.0";
+            calculateGcashFees();
+
+            alert(`Cash-Out successful!\nReceived ₱${amount.toFixed(2)} digital GCash\nHanded out physical cash: ₱${netHandedOut.toFixed(2)} (after ₱${fee.toFixed(2)} service fee deduction)`);
+        }
+
+        // Manual Balance Overrides
+        function adjustBalance(type) {
+            if (type === 'gcash') {
+                const current = getGcashBalance();
+                const newVal = prompt("Adjust GCash Wallet Balance (₱):", current.toFixed(2));
+                if (newVal !== null && !isNaN(newVal)) {
+                    saveGcashBalance(parseFloat(newVal));
+                    renderBalances();
+                }
+            } else {
+                const current = getCashDrawerBalance();
+                const newVal = prompt("Adjust Cash Register Drawer Balance (₱):", current.toFixed(2));
+                if (newVal !== null && !isNaN(newVal)) {
+                    saveCashDrawerBalance(parseFloat(newVal));
+                    renderBalances();
+                }
+            }
+        }
+
+        // Run application
+        initScreen();
+    </script>
+</body>
+</html>
