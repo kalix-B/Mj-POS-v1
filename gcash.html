@@ -214,9 +214,8 @@
     <!-- Page Controller script -->
     <script>
         let transactions = [];
-        let activeTab = "in"; // "in" or "out"
+        let activeTab = "in";
 
-        // Initialize screen
         async function initScreen() {
             startClock();
             transactions = await getTransactions();
@@ -224,7 +223,6 @@
             renderGcashLogs();
         }
 
-        // Clock Update
         function startClock() {
             function updateClock() {
                 const now = new Date();
@@ -235,7 +233,6 @@
             setInterval(updateClock, 1000);
         }
 
-        // Render Ledger Balances
         async function renderBalances() {
             const gcashBal = await getGcashBalance();
             const cashBal = await getCashDrawerBalance();
@@ -243,7 +240,6 @@
             document.getElementById('cashDrawerBalanceVal').textContent = `₱${cashBal.toFixed(2)}`;
         }
 
-        // Toggle Cash-In / Cash-Out tabs
         function setGcashTab(tab) {
             activeTab = tab;
             const inBtn = document.getElementById('tabInBtn');
@@ -265,51 +261,41 @@
             calculateGcashFees();
         }
 
-        // Calculate values dynamically
         function calculateGcashFees() {
             if (activeTab === 'in') {
                 const amount = parseFloat(document.getElementById('inAmount').value) || 0;
                 const feeRate = parseFloat(document.getElementById('inFeeRate').value) || 0;
-                
                 const fee = amount * (feeRate / 100);
                 const total = amount + fee;
-
                 document.getElementById('inDisplayBase').textContent = `₱${amount.toFixed(2)}`;
                 document.getElementById('inDisplayFee').textContent = `₱${fee.toFixed(2)}`;
                 document.getElementById('inDisplayTotal').textContent = `₱${total.toFixed(2)}`;
             } else {
                 const amount = parseFloat(document.getElementById('outAmount').value) || 0;
                 const feeRate = parseFloat(document.getElementById('outFeeRate').value) || 0;
-
                 const fee = amount * (feeRate / 100);
                 const net = amount - fee;
-
                 document.getElementById('outDisplayBase').textContent = `₱${amount.toFixed(2)}`;
                 document.getElementById('outDisplayFee').textContent = `₱${fee.toFixed(2)}`;
                 document.getElementById('outDisplayTotal').textContent = `₱${net.toFixed(2)}`;
             }
         }
 
-        // Render recent GCash Logs
         function renderGcashLogs() {
             const tbody = document.getElementById('gcashLogsTableBody');
             tbody.innerHTML = '';
-
             const gcashTxs = transactions.filter(t => t.type === 'gcash-in' || t.type === 'gcash-out');
             gcashTxs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
             if (gcashTxs.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-secondary); padding: 2rem;">No GCash transactions logged yet.</td></tr>`;
                 return;
             }
-
             gcashTxs.forEach(tx => {
                 const formattedDate = new Date(tx.timestamp).toLocaleString();
                 const isCashIn = tx.type === 'gcash-in';
                 const serviceTag = isCashIn 
                     ? `<span class="badge badge-success" style="background: rgba(16, 185, 129, 0.15)">📲 Cash-In</span>`
                     : `<span class="badge badge-warning" style="background: rgba(245, 158, 11, 0.15)">💸 Cash-Out</span>`;
-
                 tbody.innerHTML += `
                     <tr>
                         <td><b>${tx.id}</b><br><small style="color:var(--text-secondary)">${formattedDate}</small></td>
@@ -326,6 +312,8 @@
         }
 
         // Submit Cash-In
+        // GCash balance goes DOWN (you send GCash to customer)
+        // Cash drawer goes UP (customer gives you cash + fee)
         async function processCashIn(e) {
             e.preventDefault();
             const phone = document.getElementById('inPhone').value;
@@ -359,6 +347,12 @@
             };
 
             await addTransaction(tx);
+
+            // GCash ➖ subtract amount | Cash ➕ add total collected
+            const currentCash = await getCashDrawerBalance();
+            await saveGcashBalance(merchantGcashBal - amount);
+            await saveCashDrawerBalance(currentCash + totalToCollect);
+
             transactions = await getTransactions();
             await renderBalances();
             renderGcashLogs();
@@ -371,6 +365,8 @@
         }
 
         // Submit Cash-Out
+        // Cash drawer goes DOWN (you give cash to customer)
+        // GCash balance goes UP (customer sends you GCash)
         async function processCashOut(e) {
             e.preventDefault();
             const phone = document.getElementById('outPhone').value;
@@ -401,6 +397,12 @@
             };
 
             await addTransaction(tx);
+
+            // Cash ➖ subtract handed out | GCash ➕ add amount received
+            const currentGcash = await getGcashBalance();
+            await saveCashDrawerBalance(cashDrawer - netHandedOut);
+            await saveGcashBalance(currentGcash + amount);
+
             transactions = await getTransactions();
             await renderBalances();
             renderGcashLogs();
