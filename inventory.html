@@ -13,14 +13,12 @@
     </script>
 </head>
 <body>
-    <!-- Background Decor -->
     <div class="background-decor">
         <div class="circle circle-1"></div>
         <div class="circle circle-2"></div>
     </div>
 
     <div class="app-container">
-        <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand-section">
                 <span class="brand-icon">🏪</span>
@@ -68,7 +66,6 @@
             </div>
         </aside>
 
-        <!-- Main Content Area -->
         <main class="main-content">
             <header class="page-header">
                 <div class="page-title">
@@ -79,7 +76,6 @@
             </header>
 
             <div class="manager-layout">
-                <!-- Sidebar Product Form -->
                 <section class="inventory-form glass-panel">
                     <h3 id="formTitle">Add New Product</h3>
                     <form id="productForm">
@@ -95,9 +91,9 @@
                                 <label for="prodCategory">Category</label>
                                 <span style="font-size:0.75rem; color:var(--accent-blue); cursor:pointer; font-weight:600; text-decoration: underline;" onclick="openCategoryModal()">⚙️ Manage</span>
                             </div>
-                            <select id="prodCategory" required>
-                                <!-- Populated dynamically -->
-                            </select>
+                            <input type="text" id="prodCategory" list="categoryOptions" placeholder="Select or type a category..." required>
+                            <datalist id="categoryOptions">
+                                </datalist>
                         </div>
                         
                         <div class="form-row-2">
@@ -116,7 +112,6 @@
                     </form>
                 </section>
 
-                <!-- Inventory Product Table -->
                 <section class="inventory-table-panel">
                     <div class="table-responsive">
                         <table class="custom-table">
@@ -131,8 +126,7 @@
                                 </tr>
                             </thead>
                             <tbody id="inventoryTableBody">
-                                <!-- Filled by JS -->
-                            </tbody>
+                                </tbody>
                         </table>
                     </div>
                 </section>
@@ -140,7 +134,6 @@
         </main>
     </div>
 
-    <!-- Category Manager Modal Overlay -->
     <div class="modal-overlay" id="categoryModal">
         <div class="modal-box glass-panel" style="max-width: 400px; max-height: 90vh; display:flex; flex-direction:column;">
             <h3 style="font-size: 1.15rem; font-weight:700; border-bottom:1px solid var(--border-card); padding-bottom: 0.5rem; margin-bottom: 1rem;">Manage Categories</h3>
@@ -154,8 +147,7 @@
             </div>
 
             <div style="flex-grow: 1; overflow-y:auto; max-height: 250px; display:flex; flex-direction:column; gap:0.5rem; padding-right:0.25rem;" id="categoryListContainer">
-                <!-- Populated dynamically -->
-            </div>
+                </div>
 
             <div class="modal-actions" style="border-top: 1px solid var(--border-card); padding-top:1rem; margin-top:1rem;">
                 <button type="button" onclick="closeCategoryModal()" class="btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.90rem;">Close</button>
@@ -163,7 +155,6 @@
         </div>
     </div>
 
-    <!-- Inventory Controller Javascript -->
     <script>
         let inventory = [];
         let categories = [];
@@ -233,10 +224,17 @@
             e.preventDefault();
             
             const name = document.getElementById('prodName').value.trim();
-            const category = document.getElementById('prodCategory').value;
+            const category = document.getElementById('prodCategory').value.trim();
             const price = parseFloat(document.getElementById('prodPrice').value);
             const stock = parseInt(document.getElementById('prodStock').value);
             const idVal = document.getElementById('editProductId').value;
+
+            // FIXED: If user typed a custom text category that doesn't exist yet, save it to DB
+            if (category && !categories.includes(category)) {
+                await addCategory(category);
+                categories = await getCategories();
+                populateCategoryDropdown();
+            }
 
             if (editMode && idVal) {
                 await updateInventoryItem({ id: parseInt(idVal), name, category, price, stock });
@@ -295,15 +293,16 @@
             }
         }
 
-        // Category Manager Logic
+        // FIXED: Handles datalist options generation cleanly
         function populateCategoryDropdown() {
-            const dropdown = document.getElementById('prodCategory');
-            dropdown.innerHTML = '';
+            const listContainer = document.getElementById('categoryOptions');
+            listContainer.innerHTML = '';
             categories.forEach(cat => {
-                dropdown.innerHTML += `<option value="${cat}">${cat}</option>`;
+                listContainer.innerHTML += `<option value="${cat}">${cat}</option>`;
             });
         }
 
+        // Modal Open/Close handlers
         function openCategoryModal() {
             renderCategoryList();
             document.getElementById('categoryModal').classList.add('active');
