@@ -116,7 +116,18 @@
                         </div>
                     </div>
 
-                    <div class="cash-entry">
+                    <!-- PAYMENT METHOD SELECTOR -->
+                    <div class="payment-method-selector" style="margin: 1rem 0 0.5rem 0;">
+                        <label style="margin-right: 1rem;">
+                            <input type="radio" name="paymentMethod" value="cash" checked onchange="togglePaymentFields()"> Cash
+                        </label>
+                        <label>
+                            <input type="radio" name="paymentMethod" value="gcash" onchange="togglePaymentFields()"> GCash
+                        </label>
+                    </div>
+
+                    <!-- Cash Payment Fields -->
+                    <div id="cashFields" class="cash-entry">
                         <label for="cashReceived">Cash Received</label>
                         <div class="cash-input-wrap">
                             <span>₱</span>
@@ -125,6 +136,17 @@
                         <div class="total-row" style="margin-top: 0.5rem; font-weight: 600;">
                             <span>Change Due</span>
                             <span id="changeDueVal" style="color: var(--accent-emerald);">₱0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- GCash Payment Fields (hidden by default) -->
+                    <div id="gcashFields" style="display: none; margin-top: 0.5rem;">
+                        <div class="total-row" style="justify-content: center; color: var(--accent-gcash);">
+                            <span>✅ Customer will pay exact amount via GCash</span>
+                        </div>
+                        <div class="form-group" style="margin-top: 0.75rem;">
+                            <label for="gcashRefNo">GCash Reference No. (optional)</label>
+                            <input type="text" id="gcashRefNo" placeholder="e.g., 1234567890">
                         </div>
                     </div>
 
@@ -156,6 +178,7 @@
                 const categories = await getCategories();
                 renderCategoryTabs(categories);
                 renderProducts();
+                togglePaymentFields();  // initial UI state
             } catch (err) {
                 console.error("System configuration failure:", err);
             }
@@ -284,6 +307,7 @@
             cart = [];
             document.getElementById('discountInput').value = 0;
             document.getElementById('cashReceived').value = '';
+            document.getElementById('gcashRefNo').value = '';
             recalculateCart();
         }
 
@@ -351,6 +375,23 @@
             }
         }
 
+        function togglePaymentFields() {
+            const selected = document.querySelector('input[name="paymentMethod"]:checked').value;
+            const cashFields = document.getElementById('cashFields');
+            const gcashFields = document.getElementById('gcashFields');
+            if (selected === 'cash') {
+                cashFields.style.display = 'block';
+                gcashFields.style.display = 'none';
+                document.getElementById('cashReceived').required = true;
+            } else {
+                cashFields.style.display = 'none';
+                gcashFields.style.display = 'block';
+                document.getElementById('cashReceived').required = false;
+                document.getElementById('cashReceived').value = '';
+                document.getElementById('changeDueVal').textContent = '₱0.00';
+            }
+        }
+
         async function checkoutOrder() {
             if (cart.length === 0) {
                 alert("Cannot complete transaction: Cart is empty!");
@@ -359,13 +400,23 @@
 
             const totalText = document.getElementById('totalDueVal').textContent.replace('₱', '');
             const totalDue = parseFloat(totalText) || 0;
-            const cashVal = parseFloat(document.getElementById('cashReceived').value) || 0;
+            const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
 
-            if (cashVal < totalDue) {
-                alert(`Insufficient Cash! Cash received must be at least ₱${totalDue.toFixed(2)}`);
-                return;
+            let cashReceived = 0, change = 0;
+            if (paymentMethod === 'cash') {
+                cashReceived = parseFloat(document.getElementById('cashReceived').value) || 0;
+                if (cashReceived < totalDue) {
+                    alert(`Insufficient Cash! Cash received must be at least ₱${totalDue.toFixed(2)}`);
+                    return;
+                }
+                change = cashReceived - totalDue;
+            } else {
+                // GCash – exact amount only
+                cashReceived = totalDue;
+                change = 0;
             }
 
+            // 1. Update inventory stock
             try {
                 for (const cartItem of cart) {
                     const invItem = inventory.find(p => p.id === cartItem.id);
@@ -375,13 +426,30 @@
                     }
                 }
             } catch (err) {
-                console.error("Database connection dropped during inventory mutation:", err);
+                console.error("Error updating inventory:", err);
+                alert("Failed to update stock. Transaction aborted.");
+                return;
             }
 
+            // 2. Update balances (cash drawer or gcash balance)
+            try {
+                if (paymentMethod === 'cash') {
+                    const currentCash = await getCashDrawerBalance();
+                    await saveCashDrawerBalance(currentCash + totalDue);
+                } else {
+                    const currentGcash = await getGcashBalance();
+                    await saveGcashBalance(currentGcash + totalDue);
+                }
+            } catch (err) {
+                console.error("Balance update failed:", err);
+                alert("Payment recorded but balance update failed. Check logs.");
+            }
+
+            // 3. Build transaction object
             const subtotalText = document.getElementById('subtotalVal').textContent.replace('₱', '');
             const subtotal = parseFloat(subtotalText) || 0;
             const discountPercent = parseFloat(document.getElementById('discountInput').value) || 0;
-            const change = cashVal - totalDue;
+            const gcashRef = document.getElementById('gcashRefNo')?.value || '';
 
             const newTx = {
                 id: "TX-" + Date.now(),
@@ -396,14 +464,16 @@
                 })),
                 subtotal: subtotal,
                 discount: discountPercent,
-                tax: 0,
                 total: totalDue,
-                cashReceived: cashVal,
-                change: change
+                cashReceived: cashReceived,
+                change: change,
+                paymentMethod: paymentMethod,
+                referenceNumber: paymentMethod === 'gcash' ? gcashRef : null
             };
 
             await addTransaction(newTx);
 
+            // 4. Show receipt modal
             const dateStr = new Date(newTx.timestamp).toLocaleString();
             let receiptItemsHtml = '';
             newTx.items.forEach(item => {
@@ -425,6 +495,8 @@
                     <div><b>Date:</b> ${dateStr}</div>
                     <div><b>Receipt ID:</b> ${newTx.id}</div>
                     <div><b>Cashier:</b> ${newTx.cashier}</div>
+                    <div><b>Payment:</b> ${newTx.paymentMethod.toUpperCase()}</div>
+                    ${newTx.paymentMethod === 'gcash' && newTx.referenceNumber ? `<div><b>GCash Ref:</b> ${newTx.referenceNumber}</div>` : ''}
                     <hr style="border: 0; border-top: 1px dashed #94a3b8; margin: 0.5rem 0;">
                     ${receiptItemsHtml}
                     <div class="receipt-totals">
@@ -444,13 +516,15 @@
                         </div>
                         <hr style="border: 0; border-top: 1px dashed #94a3b8; margin: 0.5rem 0;">
                         <div class="receipt-totals-row" style="font-weight:normal;">
-                            <span>Cash Tendered</span>
+                            <span>Amount Tendered</span>
                             <span>₱${newTx.cashReceived.toFixed(2)}</span>
                         </div>
-                        <div class="receipt-totals-row" style="font-weight:normal;">
-                            <span>Change Due</span>
-                            <span>₱${newTx.change.toFixed(2)}</span>
-                        </div>
+                        ${newTx.change > 0 ? `
+                            <div class="receipt-totals-row" style="font-weight:normal;">
+                                <span>Change Due</span>
+                                <span>₱${newTx.change.toFixed(2)}</span>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
                 <div class="receipt-footer">
@@ -460,6 +534,7 @@
 
             document.getElementById('receiptModal').classList.add('active');
 
+            // 5. Reset cart & refresh product grid
             clearCart();
             try {
                 inventory = await getInventory();
