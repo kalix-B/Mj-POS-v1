@@ -175,4 +175,55 @@
 
     <script>
         let transactions = [];
-        let
+        let inventory = [];
+        let activeTab = "daily";
+
+        // Initialize Page
+        async function initScreen() {
+            startClock();
+            
+            // Wait for data to load from Supabase
+            // Ensure these functions exist in your db.js file
+            transactions = await getTransactions();
+            inventory = await getInventory();
+
+            // Safety checks
+            transactions = Array.isArray(transactions) ? transactions : [];
+            inventory = Array.isArray(inventory) ? inventory : [];
+            
+            // Populate filter inputs with today's date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dateFilterInput').value = today;
+            
+            const thisMonth = new Date().toISOString().substring(0, 7);
+            document.getElementById('monthFilterInput').value = thisMonth;
+
+            // Render components
+            calculateKPIs();
+            renderCharts();
+            renderLogsTable();
+        }
+
+        // Clock Update Logic
+        function startClock() {
+            function updateClock() {
+                const now = new Date();
+                const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+                document.getElementById('liveClock').textContent = now.toLocaleDateString('en-US', options);
+            }
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        // Run the application
+        initScreen();
+    </script>
+
+
+
+
+
+
+
+
+        
