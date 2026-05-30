@@ -98,7 +98,7 @@ async function deleteCategory(name) {
 }
 
 // ============================================
-// TRANSACTIONS
+// TRANSACTIONS (updated to include payment_method)
 // ============================================
 async function getTransactions() {
     const { data, error } = await _db
@@ -121,7 +121,8 @@ async function getTransactions() {
         gcashAmount: row.gcash_amount,
         serviceFee: row.service_fee,
         totalHandedOut: row.total_handed_out,
-        referenceNumber: row.reference_number
+        referenceNumber: row.reference_number,
+        paymentMethod: row.payment_method
     }));
 }
 
@@ -141,7 +142,8 @@ async function addTransaction(txData) {
         gcash_amount: txData.gcashAmount || null,
         service_fee: txData.serviceFee || null,
         total_handed_out: txData.totalHandedOut || null,
-        reference_number: txData.referenceNumber || null
+        reference_number: txData.referenceNumber || null,
+        payment_method: txData.paymentMethod || 'cash'
     }]);
     if (error) console.error('addTransaction:', error.message);
 }
