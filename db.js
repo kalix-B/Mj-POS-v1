@@ -1,8 +1,6 @@
 const SUPABASE_URL = 'https://puzqsuqouuofbwdarrax.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1enFzdXFvdXVvZmJ3ZGFycmF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjU5ODUsImV4cCI6MjA5NTcwMTk4NX0.4OFyoKKP0J0tD4B28C9SCZc6IF_kViItOtOLqH2051w';
 
-
-
 const { createClient } = supabase;
 const _db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: {
@@ -108,7 +106,6 @@ async function getTransactions() {
         .select('*')
         .order('timestamp', { ascending: false });
     if (error) { console.error('getTransactions:', error.message); return []; }
-    // Map DB snake_case columns → camelCase used in UI
     return (data || []).map(row => ({
         id: row.id,
         timestamp: row.timestamp,
@@ -117,7 +114,6 @@ async function getTransactions() {
         items: row.items,
         subtotal: row.subtotal,
         discount: row.discount,
-        tax: row.tax,
         total: row.total,
         cashReceived: row.cash_received,
         change: row.change,
@@ -138,7 +134,6 @@ async function addTransaction(txData) {
         items: txData.items || null,
         subtotal: txData.subtotal || null,
         discount: txData.discount || null,
-        tax: txData.tax || null,
         total: txData.total,
         cash_received: txData.cashReceived || null,
         change: txData.change || null,
@@ -191,21 +186,3 @@ async function getCashDrawerBalance() {
 async function saveCashDrawerBalance(bal) {
     await setConfig('cash_drawer', bal.toFixed(2));
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
