@@ -31,12 +31,17 @@ function logout() {
     window.location.href = 'login.html';
 }
 
-function login(pin) {
+function login(pin, name) {
     if (pin === LOGIN_PIN) {
         sessionStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('cashierName', name || 'Admin');
         return true;
     }
     return false;
+}
+
+function getCashierName() {
+    return sessionStorage.getItem('cashierName') || 'Admin';
 }
 
 // ============================================
