@@ -264,7 +264,7 @@
                     <td>${typeBadge}</td>
                     <td>${tx.cashier || 'Admin'}</td>
                     <td>${discountOrFee}</td>
-                    <td><b>₱${Number(tx.total || 0).toFixed(2)}</b></td>
+                  <td><b>₱${(isGcashIn || isGcashOut) ? Number(tx.gcashAmount || 0).toFixed(2) : Number(tx.total || 0).toFixed(2)}</b></td>
                     <td style="text-align:center;">
                         <button class="btn-icon" onclick="openReceiptModal('${tx.id}')" title="View Receipt">🧾</button>
                     </td>
@@ -394,7 +394,7 @@
                     </div>
                 ` : ''}
                 <div style="display:flex;justify-content:space-between;padding:0.4rem 0;font-size:1rem;font-weight:bold;">
-                    <span>TOTAL</span><span>₱${Number(tx.total || 0).toFixed(2)}</span>
+                   <span>TOTAL</span><span>₱${isGcash ? Number(tx.gcashAmount || 0).toFixed(2) : Number(tx.total || 0).toFixed(2)}</span>
                 </div>
                 <hr style="border-color:#444; margin:0.5rem 0;">
                 <div style="text-align:center; margin-top:0.75rem;">
