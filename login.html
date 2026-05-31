@@ -19,17 +19,11 @@
         <h2>Welcome Back</h2>
         <p class="subtitle">Enter Admin PIN to access the POS System</p>
         
-        <div class="login-input-group">
-    <label for="nameInput">Your Name</label>
-    <input type="text" id="nameInput" placeholder="Enter your name" required autocomplete="name">
-</div>
-
-<div class="login-input-group">
-    <label for="pinInput">Admin Passcode / PIN</label>
-    <input type="password" id="pinInput" placeholder="••••" maxlength="4" required autocomplete="current-password">
-</div>
-
-<button type="submit" class="btn-primary">Sign In</button>
+        <form id="loginForm">
+            <div class="login-input-group">
+                <label for="pinInput">Admin Passcode / PIN</label>
+                <input type="password" id="pinInput" placeholder="••••" maxlength="4" required autocomplete="current-password">
+            </div>
             
             <button type="submit" class="btn-primary">Sign In</button>
             <div id="errorMsg" class="login-error-msg"></div>
