@@ -338,7 +338,7 @@
                 id: "TX-" + Date.now(),
                 type: "gcash-in",
                 timestamp: new Date().toISOString(),
-                cashier: "Admin User",
+                cashier: getCashierName(),
                 mobileNumber: phone,
                 gcashAmount: amount,
                 serviceFee: fee,
