@@ -15,6 +15,7 @@ const _db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // AUTH (PIN-based — no Supabase Auth needed)
 // ============================================
 const LOGIN_PIN = "1962";
+const CASHIER_NAME = "Ella Alas"; // ← change this name
 
 function checkAuth() {
     const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
@@ -31,12 +32,18 @@ function logout() {
     window.location.href = 'login.html';
 }
 
+
 function login(pin) {
     if (pin === LOGIN_PIN) {
         sessionStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('cashierName', CASHIER_NAME);
         return true;
     }
     return false;
+}
+
+function getCashierName() {
+    return sessionStorage.getItem('cashierName') || CASHIER_NAME;
 }
 
 // ============================================
