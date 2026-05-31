@@ -30,18 +30,11 @@ function logout() {
     sessionStorage.removeItem('isLoggedIn');
     window.location.href = 'login.html';
 }
-function login(pin, name) {
+
+function login(pin) {
     if (pin === LOGIN_PIN) {
         sessionStorage.setItem('isLoggedIn', 'true');
-        sessionStorage.setItem('cashierName', name || 'Admin');
         return true;
-    }
-    return false;
-}
-
-function getCashierName() {
-    return sessionStorage.getItem('cashierName') || 'Admin';
-}
     }
     return false;
 }
