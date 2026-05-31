@@ -32,7 +32,6 @@ function logout() {
     window.location.href = 'login.html';
 }
 
-
 function login(pin) {
     if (pin === LOGIN_PIN) {
         sessionStorage.setItem('isLoggedIn', 'true');
@@ -105,7 +104,7 @@ async function deleteCategory(name) {
 }
 
 // ============================================
-// TRANSACTIONS (updated to include payment_method)
+// TRANSACTIONS
 // ============================================
 async function getTransactions() {
     const { data, error } = await _db
